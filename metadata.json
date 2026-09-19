@@ -1,0 +1,6 @@
+{
+  "name": "电气二次技能考试与刷题系统",
+  "description": "完全单文件离线电气二次专业考试与刷题应用，支持Excel题库导入、多题库隔离、背题/答题双模式、错题斩消机制、模拟考试及手机端手势交互。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

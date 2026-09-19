@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>电气二次专业技能考试与刷题系统</title>
+    <meta name="description" content="完全单文件离线电气二次专业考试与刷题应用，支持多Sheet Excel题库导入、多题库隔离、单项练习、错题消斩与全真模考。" />
+    
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="电气二次题库" />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- CDN Libraries: Tailwind CSS, Vue 3, SheetJS, LocalForage (IndexedDB) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#eff6ff',
+                100: '#dbeafe',
+                500: '#3b82f6',
+                600: '#2563eb',
+                700: '#1d4ed8',
+                900: '#1e3a8a'
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      .safe-bottom {
+        padding-bottom: max(env(safe-area-inset-bottom), 12px);
+      }
+      .safe-top {
+        padding-top: max(env(safe-area-inset-top), 0px);
+      }
+      .scrollbar-none::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-none {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      [v-cloak] { display: none; }
+    </style>
+  </head>
+  <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
+    <div id="app" v-cloak class="flex-1 flex flex-col max-w-3xl mx-auto w-full min-h-screen bg-slate-50 shadow-xl relative pb-28">
+      
+      <!-- ================= 1. 顶部 Header 与 全局导航栏 ================= -->
+      <header id="app-header" class="sticky top-0 z-30 bg-slate-900 text-white shadow-lg safe-top">
+        <!-- Top Info Row -->
+        <div class="px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
+          <div class="flex items-center space-x-2 truncate">
+            <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow text-sm shrink-0">⚡</div>
+            <h1 class="font-bold text-sm sm:text-base tracking-wide truncate">电气二次技能考题宝</h1>
+          </div>
+
+          <!-- Current Bank Switcher -->
+          <button 
+            @click="currentTab = 'banks'" 
+            class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-700 transition shrink-0">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="truncate max-w-[110px] sm:max-w-[160px]">{{ currentBank ? currentBank.name : '选择题库' }}</span>
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+        </div>
+
+        <!-- 5 个全局切换入口 Navigation Tabs -->
+        <nav class="flex items-center justify-between px-2 sm:px-4 py-1.5 overflow-x-auto scrollbar-none bg-slate-900/95 text-xs sm:text-sm">
+          <button 
+            id="nav-home"
+            @click="switchTab('home')" 
+            :class="currentTab === 'home' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            <span>首页</span>
+          </button>
+
+          <button 
+            id="nav-practice"
+            @click="switchTab('practice')" 
+            :class="currentTab === 'practice' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <span>单项练习</span>
+          </button>
+
+          <button 
+            id="nav-exam"
+            @click="switchTab('exam')" 
+            :class="currentTab === 'exam' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span>模拟考试</span>
+          </button>
+
+          <button 
+            id="nav-wrong"
+            @click="switchTab('wrong')" 
+            :class="currentTab === 'wrong' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0 relative">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span>错题消斩</span>
+            <span v-if="wrongQuestionCount > 0" class="ml-0.5 px-1.5 py-0.2 text-[10px] bg-rose-500 text-white font-bold rounded-full">{{ wrongQuestionCount }}</span>
+          </button>
+
+          <button 
+            id="nav-banks"
+            @click="switchTab('banks')" 
+            :class="currentTab === 'banks' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 4h16"/></svg>
+            <span>题库管理</span>
+          </button>
+        </nav>
+      </header>
+
+      <!-- ================= 2. 页面视图路由区域 ================= -->
+      
+      <!-- ---------------- TAB A: 【首页】 ---------------- -->
+      <section v-if="currentTab === 'home'" id="page-home" class="p-4 sm:p-6 space-y-5">
+        
+        <!-- Welcome & Current Bank Banner -->
+        <div class="bg-gradient-to-r from-slate-900 to-blue-900 rounded-2xl p-5 text-white shadow-md relative overflow-hidden">
+          <div class="relative z-10 space-y-2">
+            <div class="inline-flex items-center space-x-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-500/30 text-blue-200 border border-blue-400/30">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>当前题库：{{ currentBank ? currentBank.name : '未选择' }}</span>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black">电气二次专业技能冲刺题库</h2>
+            <p class="text-xs sm:text-sm text-slate-300">多Sheet自动解析、背答双模、错题连对两次斩消、全真考场模拟</p>
+          </div>
+          <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl"></div>
+        </div>
+
+        <!-- 总体数据统计仪表盘 (总体刷题进度、平均正确率等) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500 font-medium">总体刷题进度</div>
+            <div class="mt-1 flex items-baseline space-x-1">
+              <span class="text-xl sm:text-2xl font-black text-slate-900">{{ answeredCount }}</span>
+              <span class="text-xs text-slate-400">/ {{ currentBankAllQuestions.length }} 题</span>
+            </div>
+            <div class="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-blue-600 h-full rounded-full transition-all duration-300" :style="{ width: overallProgressPercent + '%' }"></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500 font-medium">平均正确率</div>
+            <div class="mt-1 text-xl sm:text-2xl font-black text-emerald-600">{{ accuracyRate }}%</div>
+            <div class="text-[10px] text-slate-400 mt-1">已答 {{ answeredCount }} 题中的胜率</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500 font-medium">待消灭错题</div>
+            <div class="mt-1 text-xl sm:text-2xl font-black text-rose-600">{{ wrongQuestionCount }}</div>
+            <div class="text-[10px] text-rose-400 mt-1">需连对2次方可消灭</div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs text-slate-500 font-medium">重点收藏</div>
+            <div class="mt-1 text-xl sm:text-2xl font-black text-amber-500">{{ favoriteCount }}</div>
+            <div class="text-[10px] text-amber-600 mt-1">标记疑难与核心考点</div>
+          </div>
+        </div>
+
+        <!-- 快捷入口区 (包含：一键开始上次练习) -->
+        <div class="space-y-2">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">常用快捷入口</div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <!-- 一键开始上次练习 -->
+            <button 
+              id="btn-resume-practice"
+              @click="resumeLastPractice" 
+              class="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl shadow-md transition flex items-center justify-between text-left group">
+              <div>
+                <div class="text-xs text-blue-200 font-medium">立即恢复做题</div>
+                <div class="text-base font-bold mt-0.5">一键开始上次练习</div>
+                <div class="text-[11px] text-blue-200 mt-1">停留在：第 {{ (currentBank?.currentIndex || 0) + 1 }} 题</div>
+              </div>
+              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+              </div>
+            </button>
+
+            <!-- 错题专项消斩 -->
+            <button 
+              id="btn-quick-wrong"
+              @click="switchTab('wrong')" 
+              class="bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 p-4 rounded-xl shadow-sm transition flex items-center justify-between text-left group">
+              <div>
+                <div class="text-xs text-rose-500 font-semibold">难点突击</div>
+                <div class="text-base font-bold text-slate-800 mt-0.5">错题专项消斩</div>
+                <div class="text-[11px] text-slate-500 mt-1">当前存留 {{ wrongQuestionCount }} 道错题</div>
+              </div>
+              <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center group-hover:scale-110 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+            </button>
+
+            <!-- 全真模拟考试 -->
+            <button 
+              id="btn-quick-exam"
+              @click="switchTab('exam')" 
+              class="bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 p-4 rounded-xl shadow-sm transition flex items-center justify-between text-left group">
+              <div>
+                <div class="text-xs text-indigo-600 font-semibold">实战测评</div>
+                <div class="text-base font-bold text-slate-800 mt-0.5">全真模拟考试</div>
+                <div class="text-[11px] text-slate-500 mt-1">智能组卷 · 实时评分</div>
+              </div>
+              <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 专业类别专项练习矩阵 (动态提取 C 列数据) -->
+        <div class="space-y-3 pt-2">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">按专业类别专攻 (动态提取自Excel C列)</div>
+            <button @click="switchTab('practice')" class="text-xs text-blue-600 hover:underline">查看全部试题 &rarr;</button>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div 
+              v-for="cat in categoryStats" 
+              :key="cat.name"
+              @click="startCategoryPractice(cat.name)"
+              class="bg-white hover:bg-slate-50 border border-slate-200 p-3.5 rounded-xl shadow-sm cursor-pointer transition flex items-center justify-between group">
+              <div class="space-y-1 truncate pr-2">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span class="font-bold text-slate-800 text-sm truncate">{{ cat.name }}</span>
+                </div>
+                <div class="text-xs text-slate-500">
+                  共 <strong class="text-slate-700">{{ cat.total }}</strong> 题 · 已做 {{ cat.answered }} 题
+                  <span v-if="cat.answered > 0" class="text-emerald-600 font-semibold ml-1">({{ Math.round(cat.correct / cat.answered * 100) }}% 正确)</span>
+                </div>
+              </div>
+              <div class="shrink-0 flex items-center text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition">
+                <span>练此分类</span>
+                <svg class="w-4 h-4 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ---------------- TAB B: 【单项练习】 ---------------- -->
+      <section v-if="currentTab === 'practice'" id="page-practice" class="flex-1 flex flex-col">
+        
+        <!-- 顶部多维度组合筛选栏 (题型、专业类别C列、题目难度、背/答模式) -->
+        <div class="bg-white border-b border-slate-200 px-4 py-3 shadow-sm space-y-2.5">
+          <!-- Filter Controls Row 1: Type, Category, Difficulty -->
+          <div class="grid grid-cols-3 gap-2">
+            <!-- 题目类型 -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">题目类型</label>
+              <select v-model="selectedType" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="全部">全部题型</option>
+                <option value="单选题">单选题</option>
+                <option value="多选题">多选题</option>
+                <option value="判断题">判断题</option>
+              </select>
+            </div>
+
+            <!-- 专业类别 (动态提取 C 列数据) -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">专业类别 (C列)</label>
+              <select v-model="selectedCategory" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none truncate">
+                <option value="全部">全部分类 ({{ categories.length }})</option>
+                <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+              </select>
+            </div>
+
+            <!-- 题目难度 -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">题目难度</label>
+              <select v-model="selectedDifficulty" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="全部">全部难度</option>
+                <option value="易">容易</option>
+                <option value="中">中等</option>
+                <option value="难">较难</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Status Bar: Matches count & Switch Controls (答对自动下一题 + 答题/背题模式) -->
+          <div class="flex items-center justify-between text-xs pt-1.5 border-t border-slate-100 flex-wrap gap-2">
+            <div class="flex items-center space-x-2 text-slate-600">
+              <span>匹配到 <strong class="text-blue-600">{{ currentList.length }}</strong> 题</span>
+              <span class="text-slate-300">|</span>
+              <span>进度: <strong class="text-slate-900">{{ currentList.length > 0 ? currentIndex + 1 : 0 }}</strong>/{{ currentList.length }}</span>
+              <button v-if="hasActiveFilter" @click="resetFilters" class="text-rose-600 hover:underline text-[11px] ml-1">清除筛选</button>
+            </div>
+
+            <!-- 控制区：答对自动下一题 开关 + 答题/背题模式 Switch -->
+            <div class="flex items-center space-x-2 sm:space-x-2.5">
+              <!-- 答对自动下一题 Toggle 开关 -->
+              <button 
+                id="toggle-auto-next-practice"
+                @click="toggleAutoNext" 
+                type="button"
+                :class="autoNextOnCorrect ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
+                class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer select-none"
+                :title="autoNextOnCorrect ? '已开启：答对延迟0.5秒自动下一题，答错停留在当前页' : '已关闭：答对答错均停留在当前页，请手动点击下一题'">
+                <!-- Toggle Switch UI -->
+                <span 
+                  :class="autoNextOnCorrect ? 'bg-blue-600' : 'bg-slate-300'"
+                  class="w-7 h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
+                  <span 
+                    :class="autoNextOnCorrect ? 'translate-x-3' : 'translate-x-0'"
+                    class="w-3 h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
+                </span>
+                <span class="text-[11px] font-semibold whitespace-nowrap">答对自动下一题</span>
+              </button>
+
+              <!-- 答题模式 vs 背题模式 Switch -->
+              <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+                <button 
+                  @click="studyMode = 'practice'" 
+                  :class="studyMode === 'practice' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                  class="px-2.5 py-1 rounded-md text-xs transition">
+                  答题模式
+                </button>
+                <button 
+                  @click="studyMode = 'recite'" 
+                  :class="studyMode === 'recite' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                  class="px-2.5 py-1 rounded-md text-xs transition">
+                  背题模式
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 单项练习试题卡片容器 (支持手势滑屏切题) -->
+        <div 
+          id="practice-container"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+          class="flex-1 p-4 sm:p-5 flex flex-col space-y-4">
+          
+          <!-- 空状态提示 -->
+          <div v-if="currentList.length === 0" class="flex-1 flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-6">
+            <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">📋</div>
+            <h3 class="text-base font-bold text-slate-800">当前组合筛选下无匹配试题</h3>
+            <p class="text-xs text-slate-500 max-w-sm">请尝试放宽筛选条件，或在“题库管理”中导入更多该分类的题库。</p>
+            <button @click="resetFilters" class="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 shadow transition">重置所有筛选</button>
+          </div>
+
+          <!-- 专项试题展示卡片 -->
+          <div v-else class="space-y-4">
+            
+            <!-- 题干卡片 -->
+            <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">
+                  <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle"
+                    :class="currentQuestion.type === '多选题' ? 'bg-purple-100 text-purple-700' : currentQuestion.type === '判断题' ? 'bg-cyan-100 text-cyan-700' : 'bg-blue-100 text-blue-700'">
+                    {{ currentQuestion.type }}
+                  </span>
+                  {{ currentQuestion.stem }}
+                </div>
+
+                <!-- 收藏星标按钮 -->
+                <button 
+                  @click="toggleFavorite(currentQuestion.id)" 
+                  class="p-2 rounded-xl border transition shrink-0"
+                  :class="isFavorite(currentQuestion.id) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-400 hover:text-amber-500 border-slate-200'">
+                  <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                </button>
+              </div>
+
+              <!-- 题目标签属性 (专业类别、难度、题目出处) -->
+              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span v-if="currentQuestion.category" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium border border-slate-200">
+                  类别: {{ currentQuestion.category }}
+                </span>
+                <span v-if="currentQuestion.difficulty" class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                  难度: {{ currentQuestion.difficulty }}
+                </span>
+                <span v-if="currentQuestion.source" class="bg-slate-50 text-slate-500 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[200px]">
+                  出处: {{ currentQuestion.source }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 选项卡片列表 -->
+            <div class="space-y-2.5">
+              <div 
+                v-for="opt in currentQuestion.options" 
+                :key="opt.key"
+                @click="handleOptionClick(opt.key)"
+                :class="getOptionClass(opt.key)"
+                class="w-full p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-150 flex items-center space-x-3 cursor-pointer select-none">
+                
+                <!-- 选项字母徽标 (A, B, C, D) -->
+                <span 
+                  :class="getOptionBadgeClass(opt.key)"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors border">
+                  {{ opt.key }}
+                </span>
+
+                <!-- 选项文本 -->
+                <div class="flex-1 text-sm sm:text-base font-normal text-slate-800 leading-normal">
+                  {{ opt.text }}
+                </div>
+
+                <!-- 答案反馈图标 -->
+                <div v-if="shouldShowResult" class="shrink-0">
+                  <svg v-if="isOptionCorrect(opt.key)" class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <svg v-else-if="isOptionUserSelectedWrong(opt.key)" class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- 多选题提交按钮 (当尚未提交且处于答题模式时) -->
+            <div v-if="currentQuestion.type === '多选题' && !shouldShowResult && studyMode === 'practice'" class="pt-2">
+              <button 
+                @click="submitMultiChoice" 
+                :disabled="multiSelections.length === 0"
+                class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span>确认提交本题答案 (已选 {{ multiSelections.join(', ') || '0 项' }})</span>
+              </button>
+            </div>
+
+            <!-- 核心要求 4：答题界面答案与解析渲染 (点击提交后必须明确展示正确答案及对应文本 + F列解析) -->
+            <div v-if="shouldShowResult || studyMode === 'recite'" class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
+              
+              <!-- 正确答案呈现卡片 -->
+              <div class="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-bold text-emerald-800 uppercase tracking-wider">标准答案</div>
+                  <div v-if="currentRecord" class="text-xs font-bold">
+                    <span v-if="currentRecord.isCorrect" class="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">作答正确</span>
+                    <span v-else class="text-rose-700 bg-rose-100 px-2 py-0.5 rounded">您的作答: {{ currentRecord.userAnswer || '未作答' }}</span>
+                  </div>
+                </div>
+
+                <!-- 明确显示：“正确答案：[显示正确选项字母及对应文本]” -->
+                <div class="text-sm sm:text-base font-extrabold text-emerald-900 leading-snug">
+                  正确答案：<span class="text-emerald-700">{{ getFormattedCorrectAnswer(currentQuestion) }}</span>
+                </div>
+              </div>
+
+              <!-- 【试题解析与考点精析】区域 (必须展示 F 列的“题目解析”。若 F 列为空，则显示“暂无解析”) -->
+              <div class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                <div class="font-bold text-slate-900 flex items-center space-x-1.5 mb-1.5">
+                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                  <span>【试题解析与考点精析】</span>
+                </div>
+                <div class="text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 leading-relaxed whitespace-pre-wrap">
+                  {{ currentQuestion.analysis && currentQuestion.analysis.trim() ? currentQuestion.analysis : '暂无解析' }}
+                </div>
+              </div>
+
+              <!-- 题目出处展示 (B列) -->
+              <div v-if="currentQuestion.source" class="text-xs text-slate-500 flex items-center space-x-1 pt-1 border-t border-slate-100">
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span>题目出处：{{ currentQuestion.source }}</span>
+              </div>
+
+              <!-- 快捷下一题操作提示与按钮 (方便用户直接在卡片底部按键或点击切题) -->
+              <div v-if="shouldShowResult && currentIndex < currentList.length - 1" class="pt-2 flex items-center justify-between border-t border-slate-100">
+                <div class="text-[11px] text-slate-500 flex items-center space-x-1">
+                  <span v-if="!autoNextOnCorrect" class="text-amber-700 font-medium flex items-center">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block mr-1"></span>
+                    停留在本页复盘中，请点击【下一题】或按键盘 Enter / → 继续
+                  </span>
+                  <span v-else-if="currentRecord && currentRecord.isCorrect" class="text-emerald-700 font-medium flex items-center">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1 animate-ping"></span>
+                    作答正确，0.5秒后自动切入下一题...
+                  </span>
+                  <span v-else class="text-rose-700 font-medium flex items-center">
+                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1"></span>
+                    答错停留在当前题复盘，请点击【下一题】或按 Enter 键继续
+                  </span>
+                </div>
+                <button 
+                  @click="nextQuestion" 
+                  class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center space-x-1 shrink-0">
+                  <span>下一题</span>
+                  <span class="hidden sm:inline text-[10px] bg-blue-500 px-1 py-0.2 rounded font-mono font-normal">Enter ↵</span>
+                  <svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ---------------- TAB C: 【模拟考试】 ---------------- -->
+      <section v-if="currentTab === 'exam'" id="page-exam" class="flex-1 p-4 sm:p-6 flex flex-col space-y-4">
+        
+        <!-- 考场状态 A: 尚未开考，展示模考参数配置 -->
+        <div v-if="!isExamMode && !examReport" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
+          <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-lg text-slate-900">全真模拟考试配置</h3>
+              <p class="text-xs text-slate-500">模拟实际机考规则，全封闭答题，提交后生成正式成绩报告</p>
+            </div>
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">⏱️</div>
+          </div>
+
+          <div class="space-y-4 text-xs sm:text-sm">
+            <!-- 考试时长 -->
+            <div>
+              <label class="block font-bold text-slate-700 mb-1.5">考试时长 (分钟)</label>
+              <div class="grid grid-cols-4 gap-2">
+                <button 
+                  v-for="d in [30, 45, 60, 90]" 
+                  :key="d"
+                  @click="examConfig.duration = d"
+                  :class="examConfig.duration === d ? 'bg-blue-600 text-white font-bold' : 'bg-slate-50 text-slate-700 border border-slate-200'"
+                  class="py-2 rounded-lg text-xs transition">
+                  {{ d }} 分钟
+                </button>
+              </div>
+            </div>
+
+            <!-- 抽题数量与分值设置 -->
+            <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-slate-800">单选题</span>
+                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankSingleCount }} 题)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input type="number" min="0" :max="bankSingleCount" v-model.number="examConfig.singleCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">题 ×</span>
+                  <input type="number" min="1" v-model.number="examConfig.singleScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">分</span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-slate-800">多选题</span>
+                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankMultiCount }} 题)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input type="number" min="0" :max="bankMultiCount" v-model.number="examConfig.multiCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">题 ×</span>
+                  <input type="number" min="1" v-model.number="examConfig.multiScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">分</span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="font-bold text-slate-800">判断题</span>
+                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankJudgeCount }} 题)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input type="number" min="0" :max="bankJudgeCount" v-model.number="examConfig.judgeCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">题 ×</span>
+                  <input type="number" min="1" v-model.number="examConfig.judgeScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                  <span class="text-slate-500">分</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 试卷满分与及格线动态计算 -->
+            <div class="flex items-center justify-between bg-blue-50 p-3.5 rounded-xl border border-blue-200 text-blue-950">
+              <span class="font-medium">预计试卷总分：<strong class="text-base font-bold">{{ calculatedExamTotalScore }}</strong> 分</span>
+              <span class="font-medium">合格标准 (60%)：<strong class="text-base font-bold text-emerald-700">{{ Math.round(calculatedExamTotalScore * 0.6) }}</strong> 分</span>
+            </div>
+
+            <!-- 开始考试按钮 -->
+            <button 
+              id="btn-start-exam"
+              @click="startMockExam" 
+              class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base shadow-lg shadow-blue-500/20 transition flex items-center justify-center space-x-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+              <span>立即开始全真模拟考试</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 考场状态 B: 考试进行中 (答题中) -->
+        <div v-else-if="isExamMode" class="space-y-4">
+          <!-- 考场顶栏：倒计时与交卷按钮 -->
+          <div class="bg-slate-900 text-white px-4 py-3 rounded-xl flex items-center justify-between shadow">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400">考场倒计时:</span>
+              <span class="text-sm font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded animate-pulse">
+                {{ formatTime(examTimeLeft) }}
+              </span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400">题号: {{ currentIndex + 1 }}/{{ examQuestions.length }}</span>
+              <button @click="confirmSubmitExam" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-lg text-xs font-bold shadow transition">
+                提前交卷
+              </button>
+            </div>
+          </div>
+
+          <!-- 考试题目卡片 (全封闭，不显示对错) -->
+          <div v-if="currentQuestion" class="space-y-4">
+            <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+              <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle bg-blue-100 text-blue-700">
+                {{ currentQuestion.type }}
+              </span>
+              <span class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">{{ currentQuestion.stem }}</span>
+            </div>
+
+            <!-- 选项卡片 -->
+            <div class="space-y-2.5">
+              <div 
+                v-for="opt in currentQuestion.options" 
+                :key="opt.key"
+                @click="handleExamOptionClick(opt.key)"
+                :class="getExamOptionClass(opt.key)"
+                class="w-full p-3.5 rounded-xl border text-left transition flex items-center space-x-3 cursor-pointer">
+                <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border"
+                  :class="isExamOptionSelected(opt.key) ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 text-slate-700 border-slate-200'">
+                  {{ opt.key }}
+                </span>
+                <span class="flex-1 text-sm text-slate-800">{{ opt.text }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 考场状态 C: 考试结束成绩报告单 -->
+        <div v-else-if="examReport" class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-md space-y-5 text-center">
+          <div class="flex items-center justify-center">
+            <div class="w-20 h-20 rounded-full flex items-center justify-center border-4"
+              :class="examReport.passed ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-rose-500 text-rose-600 bg-rose-50'">
+              <span class="text-2xl font-black">{{ examReport.passed ? '合格' : '未达标' }}</span>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-3xl sm:text-4xl font-black" :class="examReport.passed ? 'text-emerald-600' : 'text-rose-600'">
+              {{ examReport.score }} <span class="text-base text-slate-400 font-normal">/ {{ examReport.totalScore }} 分</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">及格线 {{ examReport.passScore }} 分 · 用时 {{ formatTime(examReport.timeSpent) }}</p>
+          </div>
+
+          <!-- 各题型得分明细 -->
+          <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+            <div>
+              <span class="text-slate-500 block">单选题</span>
+              <span class="font-bold text-slate-800">{{ examReport.singleStats.score }}/{{ examReport.singleStats.totalScore }}分</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block">多选题</span>
+              <span class="font-bold text-slate-800">{{ examReport.multiStats.score }}/{{ examReport.multiStats.totalScore }}分</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block">判断题</span>
+              <span class="font-bold text-slate-800">{{ examReport.judgeStats.score }}/{{ examReport.judgeStats.totalScore }}分</span>
+            </div>
+          </div>
+
+          <!-- 复盘本场错题与返回按钮 -->
+          <div class="flex gap-2.5">
+            <button @click="reviewExamErrors" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition">
+              复盘本场错题 ({{ examReport.wrongQuestions.length }}题)
+            </button>
+            <button @click="exitExamReport" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+              返回练习主页
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ---------------- TAB D: 【错题消斩】 ---------------- -->
+      <section v-if="currentTab === 'wrong'" id="page-wrong" class="flex-1 flex flex-col p-4 sm:p-5 space-y-4">
+        <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-800 flex items-start space-x-2">
+          <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div>
+            <strong class="font-bold block text-sm">错题消斩规则：</strong>
+            <span>为防止靠运气蒙对，在错题消斩模式下，同一道错题必须<strong class="text-rose-900 underline">连续答对 2 次</strong>才会被自动移出错题本！</span>
+          </div>
+        </div>
+
+        <!-- 错题为空时的庆祝状态 -->
+        <div v-if="wrongQuestionList.length === 0" class="flex-1 flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-6">
+          <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">🎉</div>
+          <h3 class="text-base font-bold text-slate-800">太棒了！当前错题本已全部消斩！</h3>
+          <p class="text-xs text-slate-500 max-w-sm">您已经完全掌握了所有历史错题。建议进行一次【全真模拟考试】检验实战成效！</p>
+          <button @click="switchTab('exam')" class="px-5 py-2.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 shadow">进入模拟考试</button>
+        </div>
+
+        <!-- 错题消斩卡片 -->
+        <div v-else class="space-y-4">
+          <div class="flex items-center justify-between text-xs text-slate-600 px-1 flex-wrap gap-2">
+            <div class="flex items-center space-x-2">
+              <span>待消灭错题: <strong class="text-rose-600">{{ wrongQuestionList.length }}</strong> 题</span>
+              <span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">
+                当前连对进度: {{ getWrongStreak(currentQuestion?.id) }}/2 次
+              </span>
+            </div>
+
+            <!-- 答对自动下一题 Toggle 开关 -->
+            <button 
+              id="toggle-auto-next-wrong"
+              @click="toggleAutoNext" 
+              type="button"
+              :class="autoNextOnCorrect ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
+              class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer select-none"
+              :title="autoNextOnCorrect ? '已开启：答对延迟0.5秒自动下一题，答错停留在当前页' : '已关闭：答对答错均停留在当前页，请手动点击下一题'">
+              <span 
+                :class="autoNextOnCorrect ? 'bg-rose-600' : 'bg-slate-300'"
+                class="w-7 h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
+                <span 
+                  :class="autoNextOnCorrect ? 'translate-x-3' : 'translate-x-0'"
+                  class="w-3 h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
+              </span>
+              <span class="text-[11px] font-semibold whitespace-nowrap">答对自动下一题</span>
+            </button>
+          </div>
+
+          <!-- 错题题干 -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+            <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle bg-rose-100 text-rose-700">
+              {{ currentQuestion.type }}
+            </span>
+            <span class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">{{ currentQuestion.stem }}</span>
+          </div>
+
+          <!-- 选项列表 -->
+          <div class="space-y-2.5">
+            <div 
+              v-for="opt in currentQuestion.options" 
+              :key="opt.key"
+              @click="handleOptionClick(opt.key)"
+              :class="getOptionClass(opt.key)"
+              class="w-full p-3.5 sm:p-4 rounded-xl border text-left transition flex items-center space-x-3 cursor-pointer">
+              <span :class="getOptionBadgeClass(opt.key)" class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border">
+                {{ opt.key }}
+              </span>
+              <span class="flex-1 text-sm text-slate-800">{{ opt.text }}</span>
+            </div>
+          </div>
+
+          <!-- 多选提交 -->
+          <div v-if="currentQuestion.type === '多选题' && !shouldShowResult" class="pt-2">
+            <button @click="submitMultiChoice" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">
+              确认提交本题答案
+            </button>
+          </div>
+
+          <!-- 答案与解析 -->
+          <div v-if="shouldShowResult" class="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
+            <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 font-extrabold text-emerald-900 text-sm sm:text-base">
+              正确答案：<span class="text-emerald-700">{{ getFormattedCorrectAnswer(currentQuestion) }}</span>
+            </div>
+            <div class="text-xs sm:text-sm text-slate-700">
+              <strong class="block text-slate-900 mb-1">【试题解析与考点精析】</strong>
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                {{ currentQuestion.analysis && currentQuestion.analysis.trim() ? currentQuestion.analysis : '暂无解析' }}
+              </div>
+            </div>
+
+            <!-- 快捷下一题操作提示与按钮 -->
+            <div v-if="currentIndex < currentList.length - 1" class="pt-2 flex items-center justify-between border-t border-slate-100">
+              <div class="text-[11px] text-slate-500 flex items-center space-x-1">
+                <span v-if="!autoNextOnCorrect" class="text-amber-700 font-medium">
+                  💡 停留在当前错题复盘，点击【下一题】或按 Enter 键继续
+                </span>
+                <span v-else-if="currentRecord && currentRecord.isCorrect" class="text-emerald-700 font-medium">
+                  ⚡ 作答正确，0.5秒后自动切入下一题...
+                </span>
+                <span v-else class="text-rose-700 font-medium">
+                  💡 答错停留在当前题，请点击【下一题】或按 Enter 键继续
+                </span>
+              </div>
+              <button 
+                @click="nextQuestion" 
+                class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center space-x-1 shrink-0">
+                <span>下一题</span>
+                <span class="hidden sm:inline text-[10px] bg-rose-500 px-1 py-0.2 rounded font-mono font-normal">Enter ↵</span>
+                <svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ---------------- TAB E: 【题库管理】 ---------------- -->
+      <section v-if="currentTab === 'banks'" id="page-banks" class="flex-1 p-4 sm:p-6 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">多题库隔离管理系统</h2>
+            <p class="text-xs text-slate-500">支持多Sheet不同布局导入、备份与恢复，各题库数据绝对物理隔离</p>
+          </div>
+          <button @click="downloadExcelTemplate" class="text-xs bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>下载标准题库模板</span>
+          </button>
+        </div>
+
+        <!-- 导入区域 (Excel / JSON) -->
+        <div class="border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/50 hover:bg-blue-50/80 rounded-2xl p-6 text-center transition cursor-pointer relative group">
+          <input 
+            type="file" 
+            accept=".xlsx, .xls, .json" 
+            @change="handleFileUpload" 
+            class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+          <div class="flex flex-col items-center space-y-2">
+            <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+              📁
+            </div>
+            <div class="text-sm font-bold text-slate-800">点击或拖拽上传 Excel / JSON 题库文件</div>
+            <p class="text-xs text-slate-500 max-w-sm leading-relaxed">
+              完美适配单选题、多选题、判断题等多 Sheet 工作表，自动识别字段并隔离存储
+            </p>
+          </div>
+        </div>
+
+        <!-- 题库列表 -->
+        <div class="space-y-3">
+          <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">已存储题库列表 ({{ banks.length }})</div>
+          
+          <div 
+            v-for="bank in banks" 
+            :key="bank.id"
+            class="bg-white rounded-xl p-4 border transition-all space-y-3"
+            :class="bank.id === currentBankId ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-slate-200 hover:border-slate-300'">
+            <div class="flex items-start justify-between">
+              <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                  <h4 class="font-bold text-base text-slate-900">{{ bank.name }}</h4>
+                  <span v-if="bank.id === currentBankId" class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">当前使用中</span>
+                </div>
+                <div class="text-xs text-slate-500">
+                  共 {{ bank.questions.length }} 题 · 错题 {{ getBankWrongCount(bank) }} 题 · 建立于 {{ new Date(bank.createTime || Date.now()).toLocaleDateString() }}
+                </div>
+              </div>
+
+              <!-- 切换为此题库 -->
+              <button 
+                v-if="bank.id !== currentBankId"
+                @click="switchBank(bank.id)"
+                class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg transition">
+                切换至此库
+              </button>
+            </div>
+
+            <!-- 题库数据操作按钮组 -->
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100 text-xs">
+              <button @click="resetBankProgress(bank)" class="text-amber-600 hover:underline px-2 py-1">重置答题进度</button>
+              <button @click="exportBankJson(bank)" class="text-blue-600 hover:underline px-2 py-1">导出JSON备份</button>
+              <button v-if="banks.length > 1" @click="deleteBank(bank)" class="text-rose-600 hover:underline px-2 py-1">彻底删除</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 重新载入经典题库 -->
+        <div class="pt-2 text-center">
+          <button @click="loadSampleBank" class="text-xs text-slate-500 hover:text-blue-600 underline">
+            重新载入《电气二次专业经典冲刺真题库》(预置10题精选题)
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= 3. 底部固定操作栏 (针对单项练习/错题模式) ================= -->
+      <footer 
+        v-if="currentTab === 'practice' || currentTab === 'wrong'" 
+        id="bottom-bar" 
+        class="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 shadow-lg safe-bottom">
+        <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
+          
+          <!-- 上一题 -->
+          <button 
+            id="btn-prev"
+            @click="prevQuestion" 
+            :disabled="currentIndex <= 0"
+            class="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            <span>上一题</span>
+          </button>
+
+          <!-- 答题卡抽屉触发 -->
+          <button 
+            id="btn-card-drawer"
+            @click="openCardDrawer = true" 
+            class="py-2.5 px-3 sm:px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1.5 shadow-sm">
+            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            <span>答题卡</span>
+            <span class="bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">{{ currentIndex + 1 }}/{{ currentList.length }}</span>
+          </button>
+
+          <!-- 下一题 (答题后高亮聚焦) -->
+          <button 
+            id="btn-next"
+            @click="nextQuestion" 
+            :disabled="currentIndex >= currentList.length - 1"
+            :class="shouldShowResult ? 'bg-blue-600 hover:bg-blue-700 ring-2 ring-blue-400 ring-offset-1 shadow-lg shadow-blue-500/30 font-bold' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 font-semibold'"
+            class="flex-1 py-2.5 px-3 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-1">
+            <span>下一题</span>
+            <span v-if="shouldShowResult" class="hidden sm:inline text-[10px] bg-blue-500/60 px-1.5 py-0.5 rounded font-mono font-normal">Enter ↵</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+
+        </div>
+      </footer>
+
+      <!-- ================= 4. 答题卡抽屉 (Bottom Sheet) ================= -->
+      <div v-if="openCardDrawer" class="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm" @click.self="openCardDrawer = false">
+        <div class="bg-white rounded-t-3xl max-h-[80vh] flex flex-col shadow-2xl safe-bottom animate-in slide-in-from-bottom duration-200">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">答题卡总览 ({{ currentList.length }} 题)</h3>
+              <p class="text-xs text-slate-500 mt-0.5">已做 {{ answeredCount }}/{{ currentList.length }} 题 · 正确率 {{ accuracyRate }}%</p>
+            </div>
+            <button @click="openCardDrawer = false" class="p-1.5 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <!-- Color Legends -->
+          <div class="px-4 py-2 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center gap-3 text-xs">
+            <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-blue-600"></span><span class="text-slate-600">当前</span></span>
+            <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-slate-600">正确</span></span>
+            <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-rose-500"></span><span class="text-slate-600">错误</span></span>
+            <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-slate-200 border border-slate-300"></span><span class="text-slate-600">未做</span></span>
+          </div>
+
+          <!-- Question Grid -->
+          <div class="p-4 overflow-y-auto max-h-[50vh] grid grid-cols-6 sm:grid-cols-8 gap-2.5">
+            <button 
+              v-for="(q, idx) in currentList" 
+              :key="q.id"
+              @click="jumpToQuestion(idx)"
+              :class="getCardItemClass(q, idx)"
+              class="h-10 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center transition active:scale-95 relative">
+              {{ idx + 1 }}
+              <span v-if="isFavorite(q.id)" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            </button>
+          </div>
+
+          <!-- Quick Jump Actions -->
+          <div class="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+            <button @click="jumpToNextUnanswered" class="flex-1 py-2 text-xs font-semibold bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg">跳转下一道未做</button>
+            <button @click="jumpToNextWrong" class="flex-1 py-2 text-xs font-semibold bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg">跳转下一道错题</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notification -->
+      <transition enter-active-class="transform transition ease-out duration-200" enter-from-class="translate-y-2 opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
+        <div v-if="toastMsg" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-2xl border border-slate-700 flex items-center space-x-2">
+          <span>{{ toastMsg }}</span>
+        </div>
+      </transition>
+
+    </div>
+
+    <!-- ================= VUE 3 APPLICATION LOGIC ================= -->
+    <script>
+      const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
+
+      // 默认高质量经典真题
+      const SAMPLE_QUESTIONS = [
+        {
+          id: 'es_001',
+          type: '单选题',
+          stem: '根据《继电保护及安全自动装置反事故措施》，电流互感器二次回路接地点的规定是（ ）。',
+          options: [
+            { key: 'A', text: '必须且只允许在相关保护屏内有一点接地' },
+            { key: 'B', text: '允许在保护屏与端子箱各有一点接地' },
+            { key: 'C', text: '必须三相分别就地独立接地' },
+            { key: 'D', text: '高压CT二次回路严禁任何形式接地' }
+          ],
+          answer: 'A',
+          category: '二次回路与反措',
+          difficulty: '易',
+          source: '二十五项反事故措施',
+          analysis: '反措硬性规定：电流互感器二次回路必须且只能有一点接地。若多点接地，当发生接地故障时，大地与地网间的电位差将在二次绕组中产生分流，导致保护测量回路电流畸变甚至误动作。'
+        },
+        {
+          id: 'es_002',
+          type: '单选题',
+          stem: '微机保护装置对模拟量输入信号进行采样时，若采样频率为1200Hz（每周波24点），为防止频谱混叠，硬件低通抗混叠滤波器的截止频率应满足（ ）。',
+          options: [
+            { key: 'A', text: '低于600Hz（奈奎斯特频率）' },
+            { key: 'B', text: '高于1200Hz' },
+            { key: 'C', text: '严格等于50Hz' },
+            { key: 'D', text: '在1200Hz至2400Hz之间' }
+          ],
+          answer: 'A',
+          category: '微机保护硬件',
+          difficulty: '中',
+          source: '电力系统微机保护原理',
+          analysis: '根据香农采样定理（奈奎斯特准则），采样频率必须大于信号最高频率成分的2倍（fs > 2fc）。采样频率为1200Hz时，奈奎斯特折叠频率为600Hz，低通抗混叠滤波器的截止频率必须低于600Hz。'
+        },
+        {
+          id: 'es_003',
+          type: '多选题',
+          stem: '变压器励磁涌流具有下列哪些显著特征（ ）。',
+          options: [
+            { key: 'A', text: '数值很大，最大可达额定电流的6~8倍' },
+            { key: 'B', text: '含有大量非周期分量，波形偏向时间轴一侧' },
+            { key: 'C', text: '含有大量高次谐波，其中以二次谐波为主' },
+            { key: 'D', text: '波形之间存在明显的间断角' }
+          ],
+          answer: 'ABCD',
+          category: '变压器保护',
+          difficulty: '中',
+          source: '变压器继电保护技术导则',
+          analysis: '励磁涌流四大基本特征：数值大（最大达6~8倍额定电流）、波形偏向时间轴一侧、富含二次谐波（二次谐波制动原理）、波形存在明显间断角（间断角鉴别原理）。'
+        },
+        {
+          id: 'es_004',
+          type: '判断题',
+          stem: '双重化配置的两套微机保护其跳闸回路可以共用同一根多芯电缆引至断路器机构箱。',
+          options: [
+            { key: 'A', text: '正确' },
+            { key: 'B', text: '错误' }
+          ],
+          answer: 'B',
+          category: '二次回路与反措',
+          difficulty: '中',
+          source: '电网重大反事故技术措施',
+          analysis: '错误。反措硬性要求：双重化配置的两套保护跳闸回路、直流电源回路必须完全独立，严禁共用电缆或走同一路径，避免单根电缆绝缘老化或外力损伤导致两套保护同时失效。'
+        }
+      ];
+
+      const app = createApp({
+        setup() {
+          // 当前主 Tab: 'home' | 'practice' | 'exam' | 'wrong' | 'banks'
+          const currentTab = ref('home');
+
+          // 题库与做题状态
+          const banks = ref([]);
+          const currentBankId = ref('');
+          const currentIndex = ref(0);
+          const studyMode = ref('practice'); // 'practice' | 'recite'
+
+          // 单项练习多维筛选
+          const selectedType = ref('全部');
+          const selectedCategory = ref('全部');
+          const selectedDifficulty = ref('全部');
+
+          // 答对自动下一题控制开关（默认关闭 false，持久化存储在 localStorage）
+          const autoNextOnCorrect = ref(localStorage.getItem('app_auto_next_on_correct') === 'true');
+          let autoNextTimer = null;
+
+          const clearAutoNextTimer = () => {
+            if (autoNextTimer) {
+              clearTimeout(autoNextTimer);
+              autoNextTimer = null;
+            }
+          };
+
+          const toggleAutoNext = () => {
+            autoNextOnCorrect.value = !autoNextOnCorrect.value;
+            localStorage.setItem('app_auto_next_on_correct', autoNextOnCorrect.value ? 'true' : 'false');
+            clearAutoNextTimer();
+            if (autoNextOnCorrect.value) {
+              showToast('已开启：答对自动跳转下一题 (0.5秒延迟)');
+            } else {
+              showToast('已关闭：答题后停留在当前题，请主动点击下一题');
+            }
+          };
+
+          // 答题卡抽屉与多选临时缓存
+          const openCardDrawer = ref(false);
+          const multiSelections = ref([]);
+          const toastMsg = ref('');
+          let toastTimer = null;
+
+          // 模拟考试状态
+          const isExamMode = ref(false);
+          const examTimer = ref(null);
+          const examTimeLeft = ref(0);
+          const examDurationTotal = ref(0);
+          const examQuestions = ref([]);
+          const examAnswers = ref({});
+          const examReport = ref(null);
+          const examConfig = ref({
+            duration: 45,
+            singleCount: 10,
+            singleScore: 2,
+            multiCount: 5,
+            multiScore: 4,
+            judgeCount: 5,
+            judgeScore: 2
+          });
+
+          // 手势滑动参数
+          let touchStartX = 0;
+          let touchStartY = 0;
+          let touchEndX = 0;
+          let touchEndY = 0;
+
+          const showToast = (msg, duration = 2000) => {
+            toastMsg.value = msg;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+              toastMsg.value = '';
+            }, duration);
+          };
+
+          // LocalForage 初始化
+          localforage.config({
+            name: 'ElectricalSecondaryDB',
+            storeName: 'banks'
+          });
+
+          // 当前激活题库
+          const currentBank = computed(() => {
+            return banks.value.find(b => b.id === currentBankId.value) || banks.value[0] || null;
+          });
+
+          const currentBankAllQuestions = computed(() => {
+            return currentBank.value?.questions || [];
+          });
+
+          // 动态从 Excel C 列提取专业类别
+          const categories = computed(() => {
+            if (!currentBank.value || !currentBank.value.questions) return [];
+            const set = new Set();
+            currentBank.value.questions.forEach(q => {
+              if (q.category && q.category.trim()) {
+                set.add(q.category.trim());
+              }
+            });
+            return Array.from(set);
+          });
+
+          // 首页分类统计
+          const categoryStats = computed(() => {
+            if (!currentBank.value || !currentBank.value.questions) return [];
+            const map = {};
+            currentBank.value.questions.forEach(q => {
+              const cat = q.category || '综合';
+              if (!map[cat]) {
+                map[cat] = { name: cat, total: 0, answered: 0, correct: 0 };
+              }
+              map[cat].total++;
+              const rec = currentBank.value.records?.[q.id];
+              if (rec) {
+                map[cat].answered++;
+                if (rec.isCorrect) map[cat].correct++;
+              }
+            });
+            return Object.values(map);
+          });
+
+          // 错题列表
+          const wrongQuestionList = computed(() => {
+            if (!currentBank.value) return [];
+            const wb = currentBank.value.wrongBook || {};
+            const wrongIds = Object.keys(wb);
+            return currentBank.value.questions.filter(q => wrongIds.includes(q.id));
+          });
+
+          // 单项练习筛选后的列表
+          const practiceFilteredList = computed(() => {
+            if (!currentBank.value) return [];
+            let list = currentBank.value.questions;
+
+            if (selectedType.value !== '全部') {
+              list = list.filter(q => q.type === selectedType.value);
+            }
+            if (selectedCategory.value !== '全部') {
+              list = list.filter(q => q.category === selectedCategory.value);
+            }
+            if (selectedDifficulty.value !== '全部') {
+              list = list.filter(q => q.difficulty === selectedDifficulty.value);
+            }
+            return list;
+          });
+
+          // 当前正在渲染的题目列表
+          const currentList = computed(() => {
+            if (isExamMode.value) {
+              return examQuestions.value;
+            }
+            if (currentTab.value === 'wrong') {
+              return wrongQuestionList.value;
+            }
+            return practiceFilteredList.value;
+          });
+
+          const currentQuestion = computed(() => {
+            if (currentList.value.length === 0) return null;
+            return currentList.value[currentIndex.value] || currentList.value[0];
+          });
+
+          const currentRecord = computed(() => {
+            if (!currentQuestion.value || !currentBank.value?.records) return null;
+            return currentBank.value.records[currentQuestion.value.id] || null;
+          });
+
+          const shouldShowResult = computed(() => {
+            if (studyMode.value === 'recite') return true;
+            if (isExamMode.value) return false;
+            return !!currentRecord.value;
+          });
+
+          const hasActiveFilter = computed(() => {
+            return selectedType.value !== '全部' || selectedCategory.value !== '全部' || selectedDifficulty.value !== '全部';
+          });
+
+          // 总体统计计算
+          const answeredCount = computed(() => {
+            if (!currentBank.value?.records) return 0;
+            return Object.keys(currentBank.value.records).length;
+          });
+
+          const accuracyRate = computed(() => {
+            if (!currentBank.value?.records) return 0;
+            const recs = Object.values(currentBank.value.records);
+            if (recs.length === 0) return 0;
+            const corrects = recs.filter(r => r.isCorrect).length;
+            return Math.round((corrects / recs.length) * 100);
+          });
+
+          const wrongQuestionCount = computed(() => {
+            return wrongQuestionList.value.length;
+          });
+
+          const favoriteCount = computed(() => {
+            return currentBank.value?.favorites?.length || 0;
+          });
+
+          const overallProgressPercent = computed(() => {
+            const total = currentBankAllQuestions.value.length;
+            if (total === 0) return 0;
+            return Math.min(100, Math.round((answeredCount.value / total) * 100));
+          });
+
+          // 考试题目存量计算
+          const bankSingleCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '单选题').length);
+          const bankMultiCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '多选题').length);
+          const bankJudgeCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '判断题').length);
+
+          const calculatedExamTotalScore = computed(() => {
+            const cfg = examConfig.value;
+            return (cfg.singleCount * cfg.singleScore) + (cfg.multiCount * cfg.multiScore) + (cfg.judgeCount * cfg.judgeScore);
+          });
+
+          // ================= 核心方法：正确答案格式化输出 =================
+          // 明确显示：“正确答案：[显示正确选项字母及对应文本]”
+          const getFormattedCorrectAnswer = (q) => {
+            if (!q || !q.answer) return '';
+            if (q.type === '多选题') {
+              const letters = q.answer.split('');
+              const parts = letters.map(letter => {
+                const opt = q.options?.find(o => o.key === letter);
+                return opt ? `${letter}. ${opt.text}` : letter;
+              });
+              return parts.join('； ');
+            } else {
+              const opt = q.options?.find(o => o.key === q.answer);
+              return opt ? `${q.answer}. ${opt.text}` : q.answer;
+            }
+          };
+
+          // 保存当前题库数据
+          const saveCurrentBankData = async () => {
+            if (!currentBank.value) return;
+            currentBank.value.currentIndex = currentIndex.value;
+            await localforage.setItem(currentBank.value.id, JSON.parse(JSON.stringify(currentBank.value)));
+          };
+
+          // 切换 Tab
+          const switchTab = (tab) => {
+            clearAutoNextTimer();
+            if (isExamMode.value && tab !== 'exam') {
+              if (!confirm('正在全真模拟考试中，切换页面将保留计时。确定切换吗？')) return;
+            }
+            currentTab.value = tab;
+            currentIndex.value = 0;
+            multiSelections.value = [];
+          };
+
+          // 首页：一键开始上次练习
+          const resumeLastPractice = () => {
+            currentTab.value = 'practice';
+            resetFilters();
+            if (currentBank.value && typeof currentBank.value.currentIndex === 'number') {
+              currentIndex.value = Math.min(currentBank.value.currentIndex, Math.max(0, currentList.value.length - 1));
+            } else {
+              currentIndex.value = 0;
+            }
+            showToast(`已恢复上次答题位置：第 ${currentIndex.value + 1} 题`);
+          };
+
+          // 首页：点击专业类别开启专攻
+          const startCategoryPractice = (catName) => {
+            currentTab.value = 'practice';
+            resetFilters();
+            selectedCategory.value = catName;
+            currentIndex.value = 0;
+            showToast(`已开启【${catName}】专项单项练习`);
+          };
+
+          // 筛选改变
+          const onFilterChanged = () => {
+            currentIndex.value = 0;
+            multiSelections.value = [];
+          };
+
+          const resetFilters = () => {
+            selectedType.value = '全部';
+            selectedCategory.value = '全部';
+            selectedDifficulty.value = '全部';
+            currentIndex.value = 0;
+          };
+
+          // 作答点击
+          const handleOptionClick = (key) => {
+            if (studyMode.value === 'recite' || !currentQuestion.value) return;
+
+            const q = currentQuestion.value;
+            if (q.type === '多选题') {
+              if (shouldShowResult.value) return;
+              const idx = multiSelections.value.indexOf(key);
+              if (idx > -1) multiSelections.value.splice(idx, 1);
+              else multiSelections.value.push(key);
+              return;
+            }
+
+            // 单选或判断题
+            if (shouldShowResult.value) return;
+            const isCorrect = key === q.answer;
+            recordAnswer(q.id, key, isCorrect);
+          };
+
+          // 多选提交
+          const submitMultiChoice = () => {
+            const q = currentQuestion.value;
+            if (!q || q.type !== '多选题' || multiSelections.value.length === 0) return;
+            const userAns = [...multiSelections.value].sort().join('');
+            const isCorrect = userAns === q.answer;
+            recordAnswer(q.id, userAns, isCorrect);
+            multiSelections.value = [];
+          };
+
+          // 记录答案与错题斩消逻辑
+          const recordAnswer = (qId, userAns, isCorrect) => {
+            if (!currentBank.value) return;
+            if (!currentBank.value.records) currentBank.value.records = {};
+            if (!currentBank.value.wrongBook) currentBank.value.wrongBook = {};
+
+            currentBank.value.records[qId] = {
+              userAnswer: userAns,
+              isCorrect: isCorrect,
+              timestamp: Date.now()
+            };
+
+            const wb = currentBank.value.wrongBook;
+
+            if (!isCorrect) {
+              // 答错：连对计数重置为 0
+              wb[qId] = {
+                wrongCount: ((wb[qId]?.wrongCount) || 0) + 1,
+                consecutiveCorrect: 0,
+                lastTime: Date.now()
+              };
+              // 关键交互规范：答错时必须停留在当前页供用户复盘解析，严禁自动跳转！
+              clearAutoNextTimer();
+            } else {
+              // 答对：如果在错题本中，连对次数累加
+              if (wb[qId]) {
+                wb[qId].consecutiveCorrect = (wb[qId].consecutiveCorrect || 0) + 1;
+                if (wb[qId].consecutiveCorrect >= 2) {
+                  // 连续答对 2 次，彻底从错题本消灭！
+                  delete wb[qId];
+                  showToast('🎉 斩消成功！该题已连续做对2次，彻底移出错题本！', 2500);
+                } else {
+                  showToast(`作答正确！连对 1/2 次，再对一次彻底消灭！`, 2000);
+                }
+              }
+
+              // 关键控制逻辑：
+              // 1. 关闭状态（默认）：答对严禁自动跳转，停留在当前页展示结果与解析
+              // 2. 开启状态：答对延迟 0.5 秒（提供短暂视觉反馈）后自动切下一题
+              clearAutoNextTimer();
+              if (autoNextOnCorrect.value) {
+                autoNextTimer = setTimeout(() => {
+                  if (currentIndex.value < currentList.value.length - 1) {
+                    nextQuestion();
+                  }
+                }, 500);
+              }
+            }
+
+            saveCurrentBankData();
+          };
+
+          const getWrongStreak = (qId) => {
+            if (!qId || !currentBank.value?.wrongBook?.[qId]) return 0;
+            return currentBank.value.wrongBook[qId].consecutiveCorrect || 0;
+          };
+
+          // 切题
+          const prevQuestion = () => {
+            clearAutoNextTimer();
+            if (currentIndex.value > 0) {
+              currentIndex.value--;
+              multiSelections.value = [];
+            }
+          };
+
+          const nextQuestion = () => {
+            clearAutoNextTimer();
+            if (currentIndex.value < currentList.value.length - 1) {
+              currentIndex.value++;
+              multiSelections.value = [];
+            }
+          };
+
+          const jumpToQuestion = (idx) => {
+            clearAutoNextTimer();
+            currentIndex.value = idx;
+            multiSelections.value = [];
+            openCardDrawer.value = false;
+          };
+
+          const jumpToNextUnanswered = () => {
+            if (!currentBank.value?.records) return;
+            const list = currentList.value;
+            for (let i = currentIndex.value + 1; i < list.length; i++) {
+              if (!currentBank.value.records[list[i].id]) {
+                jumpToQuestion(i);
+                return;
+              }
+            }
+            for (let i = 0; i < currentIndex.value; i++) {
+              if (!currentBank.value.records[list[i].id]) {
+                jumpToQuestion(i);
+                return;
+              }
+            }
+            showToast('当前筛选列表中所有题目均已完成！');
+          };
+
+          const jumpToNextWrong = () => {
+            if (!currentBank.value?.records) return;
+            const list = currentList.value;
+            for (let i = currentIndex.value + 1; i < list.length; i++) {
+              const rec = currentBank.value.records[list[i].id];
+              if (rec && !rec.isCorrect) {
+                jumpToQuestion(i);
+                return;
+              }
+            }
+            showToast('未找到后续错题');
+          };
+
+          // 收藏
+          const isFavorite = (qId) => {
+            return currentBank.value?.favorites?.includes(qId);
+          };
+
+          const toggleFavorite = (qId) => {
+            if (!currentBank.value) return;
+            if (!currentBank.value.favorites) currentBank.value.favorites = [];
+            const idx = currentBank.value.favorites.indexOf(qId);
+            if (idx > -1) {
+              currentBank.value.favorites.splice(idx, 1);
+              showToast('已取消收藏');
+            } else {
+              currentBank.value.favorites.push(qId);
+              showToast('⭐ 已加入重点收藏');
+            }
+            saveCurrentBankData();
+          };
+
+          // 样式辅助
+          const isOptionCorrect = (key) => {
+            if (!currentQuestion.value) return false;
+            return currentQuestion.value.answer.includes(key);
+          };
+
+          const isOptionUserSelectedWrong = (key) => {
+            if (!currentRecord.value) return false;
+            const ans = currentRecord.value.userAnswer || '';
+            return ans.includes(key) && !isOptionCorrect(key);
+          };
+
+          const getOptionClass = (key) => {
+            if (studyMode.value === 'recite') {
+              if (isOptionCorrect(key)) {
+                return 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400';
+              }
+              return 'bg-white border-slate-200 opacity-60';
+            }
+
+            if (currentQuestion.value?.type === '多选题' && !shouldShowResult.value) {
+              if (multiSelections.value.includes(key)) {
+                return 'bg-blue-50 border-blue-500 ring-2 ring-blue-400 shadow-sm';
+              }
+              return 'bg-white border-slate-200 hover:border-slate-300';
+            }
+
+            if (shouldShowResult.value) {
+              if (isOptionCorrect(key)) {
+                return 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-400';
+              }
+              if (isOptionUserSelectedWrong(key)) {
+                return 'bg-rose-50 border-rose-500 ring-2 ring-rose-400';
+              }
+              return 'bg-white border-slate-200 opacity-50';
+            }
+
+            return 'bg-white border-slate-200 hover:bg-blue-50/40 hover:border-blue-300';
+          };
+
+          const getOptionBadgeClass = (key) => {
+            if (studyMode.value === 'recite' && isOptionCorrect(key)) {
+              return 'bg-emerald-600 text-white border-emerald-600';
+            }
+            if (currentQuestion.value?.type === '多选题' && multiSelections.value.includes(key)) {
+              return 'bg-blue-600 text-white border-blue-600';
+            }
+            if (shouldShowResult.value) {
+              if (isOptionCorrect(key)) return 'bg-emerald-600 text-white border-emerald-600';
+              if (isOptionUserSelectedWrong(key)) return 'bg-rose-600 text-white border-rose-600';
+            }
+            return 'bg-slate-100 text-slate-700 border-slate-200';
+          };
+
+          const getCardItemClass = (q, idx) => {
+            if (idx === currentIndex.value) {
+              return 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-md';
+            }
+            const rec = currentBank.value?.records?.[q.id];
+            if (rec) {
+              if (rec.isCorrect) return 'bg-emerald-500 text-white';
+              return 'bg-rose-500 text-white';
+            }
+            return 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200';
+          };
+
+          // ================= 考试模块方法 =================
+          const startMockExam = () => {
+            const allQ = currentBankAllQuestions.value;
+            if (allQ.length === 0) {
+              alert('当前题库无试题，无法开启模拟考试！');
+              return;
+            }
+
+            const singles = allQ.filter(q => q.type === '单选题').sort(() => Math.random() - 0.5);
+            const multis = allQ.filter(q => q.type === '多选题').sort(() => Math.random() - 0.5);
+            const judges = allQ.filter(q => q.type === '判断题').sort(() => Math.random() - 0.5);
+
+            const picked = [
+              ...singles.slice(0, examConfig.value.singleCount),
+              ...multis.slice(0, examConfig.value.multiCount),
+              ...judges.slice(0, examConfig.value.judgeCount)
+            ];
+
+            if (picked.length === 0) {
+              alert('抽取试题总数为0，请调整各题型抽题数量！');
+              return;
+            }
+
+            examQuestions.value = picked;
+            examAnswers.value = {};
+            currentIndex.value = 0;
+            examDurationTotal.value = examConfig.value.duration * 60;
+            examTimeLeft.value = examDurationTotal.value;
+            isExamMode.value = true;
+            examReport.value = null;
+
+            clearInterval(examTimer.value);
+            examTimer.value = setInterval(() => {
+              if (examTimeLeft.value > 0) {
+                examTimeLeft.value--;
+              } else {
+                clearInterval(examTimer.value);
+                submitExam();
+              }
+            }, 1000);
+
+            showToast('考试开始！预祝取得优异成绩！');
+          };
+
+          const handleExamOptionClick = (key) => {
+            if (!currentQuestion.value) return;
+            const q = currentQuestion.value;
+            if (q.type === '多选题') {
+              const current = examAnswers.value[q.id] ? examAnswers.value[q.id].split('') : [];
+              const idx = current.indexOf(key);
+              if (idx > -1) current.splice(idx, 1);
+              else current.push(key);
+              examAnswers.value[q.id] = current.sort().join('');
+            } else {
+              examAnswers.value[q.id] = key;
+            }
+          };
+
+          const isExamOptionSelected = (key) => {
+            if (!currentQuestion.value) return false;
+            const ans = examAnswers.value[currentQuestion.value.id] || '';
+            return ans.includes(key);
+          };
+
+          const getExamOptionClass = (key) => {
+            if (isExamOptionSelected(key)) {
+              return 'bg-blue-50 border-blue-500 ring-2 ring-blue-400';
+            }
+            return 'bg-white border-slate-200 hover:border-slate-300';
+          };
+
+          const confirmSubmitExam = () => {
+            const unanswered = examQuestions.value.length - Object.keys(examAnswers.value).length;
+            if (unanswered > 0) {
+              if (!confirm(`您还有 ${unanswered} 道题尚未作答，确定提前交卷吗？`)) return;
+            } else {
+              if (!confirm('确定提交试卷吗？')) return;
+            }
+            submitExam();
+          };
+
+          const submitExam = () => {
+            clearInterval(examTimer.value);
+
+            let totalScore = calculatedExamTotalScore.value;
+            const wrongList = [];
+            let singleScore = 0, singleTotal = examConfig.value.singleCount * examConfig.value.singleScore;
+            let multiScore = 0, multiTotal = examConfig.value.multiCount * examConfig.value.multiScore;
+            let judgeScore = 0, judgeTotal = examConfig.value.judgeCount * examConfig.value.judgeScore;
+
+            examQuestions.value.forEach(q => {
+              const userAns = examAnswers.value[q.id] || '';
+              const isCorrect = userAns === q.answer;
+
+              if (isCorrect) {
+                if (q.type === '单选题') singleScore += examConfig.value.singleScore;
+                else if (q.type === '多选题') multiScore += examConfig.value.multiScore;
+                else if (q.type === '判断题') judgeScore += examConfig.value.judgeScore;
+              } else {
+                wrongList.push(q);
+                // 考场错题自动加入题库错题本
+                if (currentBank.value) {
+                  if (!currentBank.value.wrongBook) currentBank.value.wrongBook = {};
+                  const wb = currentBank.value.wrongBook;
+                  wb[q.id] = {
+                    wrongCount: ((wb[q.id]?.wrongCount) || 0) + 1,
+                    consecutiveCorrect: 0,
+                    lastTime: Date.now()
+                  };
+                }
+              }
+            });
+
+            const earnedScore = singleScore + multiScore + judgeScore;
+            const passScore = Math.round(totalScore * 0.6);
+
+            examReport.value = {
+              score: earnedScore,
+              totalScore: totalScore,
+              passScore: passScore,
+              passed: earnedScore >= passScore,
+              timeSpent: examDurationTotal.value - examTimeLeft.value,
+              wrongQuestions: wrongList,
+              singleStats: { score: singleScore, totalScore: singleTotal },
+              multiStats: { score: multiScore, totalScore: multiTotal },
+              judgeStats: { score: judgeScore, totalScore: judgeTotal }
+            };
+
+            isExamMode.value = false;
+            saveCurrentBankData();
+          };
+
+          const reviewExamErrors = () => {
+            if (!examReport.value || examReport.value.wrongQuestions.length === 0) {
+              showToast('本场考试满分，没有错题！');
+              exitExamReport();
+              return;
+            }
+            examQuestions.value = examReport.value.wrongQuestions;
+            currentIndex.value = 0;
+            studyMode.value = 'recite';
+            isExamMode.value = false;
+            examReport.value = null;
+            currentTab.value = 'practice';
+            showToast(`进入本场考试错题复盘 (共 ${examQuestions.value.length} 题)`);
+          };
+
+          const exitExamReport = () => {
+            examReport.value = null;
+            isExamMode.value = false;
+            currentTab.value = 'home';
+          };
+
+          const formatTime = (sec) => {
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          };
+
+          // ================= 题库管理与 Excel 解析重构 =================
+          const switchBank = (bankId) => {
+            currentBankId.value = bankId;
+            currentIndex.value = 0;
+            multiSelections.value = [];
+            resetFilters();
+            saveCurrentBankData();
+            showToast(`已切换题库: ${currentBank.value?.name}`);
+            currentTab.value = 'home';
+          };
+
+          const resetBankProgress = async (bank) => {
+            if (!confirm(`确定清空题库【${bank.name}】的刷题进度吗？`)) return;
+            bank.records = {};
+            bank.currentIndex = 0;
+            await localforage.setItem(bank.id, JSON.parse(JSON.stringify(bank)));
+            showToast('刷题进度已重置！');
+          };
+
+          const deleteBank = async (bank) => {
+            if (!confirm(`确定彻底删除题库【${bank.name}】及其所有数据吗？`)) return;
+            await localforage.removeItem(bank.id);
+            banks.value = banks.value.filter(b => b.id !== bank.id);
+            if (currentBankId.value === bank.id) {
+              currentBankId.value = banks.value[0]?.id || '';
+            }
+            showToast('题库已删除');
+          };
+
+          const exportBankJson = (bank) => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(bank, null, 2));
+            const dl = document.createElement('a');
+            dl.setAttribute("href", dataStr);
+            dl.setAttribute("download", `${bank.name}_备份.json`);
+            document.body.appendChild(dl);
+            dl.click();
+            dl.remove();
+            showToast('已导出题库 JSON 备份');
+          };
+
+          const getBankWrongCount = (bank) => {
+            return bank.wrongBook ? Object.keys(bank.wrongBook).length : 0;
+          };
+
+          const loadSampleBank = async () => {
+            await initDefaultSampleBank();
+            showToast('已载入电气二次经典真题库');
+            currentTab.value = 'home';
+          };
+
+          // 核心重构：Excel 多 Sheet 深度解析与字段动态映射
+          const handleFileUpload = async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const defaultName = file.name.replace(/\.[^/.]+$/, "");
+            const bankName = prompt("请输入题库名称：", defaultName) || defaultName;
+
+            if (file.name.endsWith('.json')) {
+              // JSON 备份还原
+              const reader = new FileReader();
+              reader.onload = async (e) => {
+                try {
+                  const imported = JSON.parse(e.target.result);
+                  imported.id = 'qb_' + Date.now();
+                  imported.name = bankName;
+                  banks.value.push(imported);
+                  currentBankId.value = imported.id;
+                  await localforage.setItem(imported.id, imported);
+                  showToast(`成功恢复题库【${bankName}】，共 ${imported.questions.length} 题！`);
+                  currentTab.value = 'home';
+                } catch (err) {
+                  alert('JSON 文件格式损坏！');
+                }
+              };
+              reader.readAsText(file);
+              return;
+            }
+
+            // Excel (.xlsx, .xls) 解析
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const extractedQuestions = [];
+
+                // 1. 遍历读取文件中所有的 Sheet（忽略名为“专业类别维护”或无有效数据的配置页）
+                workbook.SheetNames.forEach(sheetName => {
+                  const sName = sheetName.trim();
+                  if (sName.includes('专业类别维护') || sName.includes('类别维护') || sName.includes('说明') || sName.includes('配置') || sName.includes('字典') || sName.includes('目录')) {
+                    return; // 跳过维护与说明页
+                  }
+
+                  const sheet = workbook.Sheets[sheetName];
+                  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                  if (!rows || rows.length < 2) return; // 无有效数据
+
+                  // 每个 Sheet 均忽略第 1 行说明文本，从第 2 行读取表头，第 3 行开始读取数据
+                  // 对应索引：row 0 是说明，row 1 是表头，row 2 以后是数据
+                  // 同时自适应：若 row 0 即包含“题干”或“题型”，则从 row 1 开始读取
+                  let dataStartIdx = 2;
+                  const row0Str = (rows[0] || []).join(' ');
+                  if (row0Str.includes('题干') || row0Str.includes('题目') || row0Str.includes('选项A')) {
+                    dataStartIdx = 1;
+                  }
+
+                  const isJudgementSheet = sName.includes('判断') || (!sName.includes('单选') && !sName.includes('多选') && (rows[1] || []).join(' ').includes('判断'));
+
+                  for (let r = dataStartIdx; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row || row.length === 0) continue;
+
+                    // D列 (Col 3)：题干内容
+                    const stem = String(row[3] || '').trim();
+                    if (!stem) continue; // 忽略空行
+
+                    // A列 (Col 0)：题型
+                    let qType = String(row[0] || '').trim();
+                    if (!qType) {
+                      if (isJudgementSheet) qType = '判断题';
+                      else if (sName.includes('多选')) qType = '多选题';
+                      else qType = '单选题';
+                    } else {
+                      if (qType.includes('多选')) qType = '多选题';
+                      else if (qType.includes('判断')) qType = '判断题';
+                      else qType = '单选题';
+                    }
+
+                    // B列 (Col 1)：题目来源
+                    const source = String(row[1] || '').trim();
+
+                    // C列 (Col 2)：专业类别
+                    const category = String(row[2] || '').trim() || '电气二次综合';
+
+                    // E列 (Col 4)：空列/保留
+
+                    // F列 (Col 5)：题目解析
+                    const analysis = String(row[5] || '').trim();
+
+                    // G列 (Col 6)：正确答案
+                    let rawAns = String(row[6] || '').trim().toUpperCase().replace(/[\s,，、]+/g, '');
+
+                    let options = [];
+
+                    if (isJudgementSheet || qType === '判断题') {
+                      // 场景 B：判断题 Sheet 专项解析（注意：此表无选项列！）
+                      // 自动生成选项（不要读取H列）：Option A 为“正确”，Option B 为“错误”
+                      options = [
+                        { key: 'A', text: '正确' },
+                        { key: 'B', text: '错误' }
+                      ];
+
+                      // 答案标准化：若 G 列填写“正确”或“对”或“A”，映射为“A”；若填写“错误”或“错”或“B”，映射为“B”
+                      if (rawAns.includes('正确') || rawAns.includes('对') || rawAns === 'A' || rawAns.includes('T') || rawAns.includes('√')) {
+                        rawAns = 'A';
+                      } else if (rawAns.includes('错误') || rawAns.includes('错') || rawAns === 'B' || rawAns.includes('F') || rawAns.includes('×')) {
+                        rawAns = 'B';
+                      } else {
+                        rawAns = rawAns || 'A';
+                      }
+                    } else {
+                      // 场景 A：单选题 & 多选题 Sheet 解析
+                      // H列 (Col 7) 及以后：选项内容（H列=选项A，I列=选项B，J列=选项C，K列=选项D，以此类推）
+                      for (let c = 7; c < row.length; c++) {
+                        const optText = String(row[c] || '').trim();
+                        if (optText) {
+                          const letter = String.fromCharCode(65 + (c - 7));
+                          options.push({ key: letter, text: optText });
+                        }
+                      }
+
+                      if (options.length === 0) {
+                        options = [
+                          { key: 'A', text: '选项 A' },
+                          { key: 'B', text: '选项 B' },
+                          { key: 'C', text: '选项 C' },
+                          { key: 'D', text: '选项 D' }
+                        ];
+                      }
+                    }
+
+                    extractedQuestions.push({
+                      id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
+                      type: qType,
+                      source: source,
+                      category: category,
+                      stem: stem,
+                      analysis: analysis,
+                      answer: rawAns || 'A',
+                      options: options,
+                      difficulty: '中'
+                    });
+                  }
+                });
+
+                if (extractedQuestions.length === 0) {
+                  alert('未能从该 Excel 中读取到试题，请确保数据在第 3 行及之后，且 D 列包含题干内容。');
+                  return;
+                }
+
+                const newBank = {
+                  id: 'qb_' + Date.now(),
+                  name: bankName,
+                  createTime: Date.now(),
+                  questions: extractedQuestions,
+                  records: {},
+                  currentIndex: 0,
+                  wrongBook: {},
+                  favorites: []
+                };
+
+                banks.value.push(newBank);
+                currentBankId.value = newBank.id;
+                await localforage.setItem(newBank.id, newBank);
+                await localforage.setItem('app_active_bank_id', newBank.id);
+
+                showToast(`🎉 成功导入题库【${bankName}】！共识别 ${extractedQuestions.length} 道电气二次试题。`, 3000);
+                currentTab.value = 'home';
+                resetFilters();
+              } catch (err) {
+                console.error('Excel parse failed:', err);
+                alert('解析 Excel 出错：' + err.message);
+              }
+            };
+            reader.readAsArrayBuffer(file);
+          };
+
+          // 下载完全匹配规范的 Excel 导入模板
+          const downloadExcelTemplate = () => {
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: 单选题
+            const singleData = [
+              ["说明：每个Sheet均忽略第1行说明文本，从第2行读取表头，第3行开始读取数据。"],
+              ["题型", "题目来源", "专业类别", "题干内容", "空列/保留", "题目解析", "正确答案", "选项A", "选项B", "选项C", "选项D"],
+              ["单选题", "继电保护及安全自动装置反事故措施", "二次回路与反措", "电流互感器二次回路接地点的规定是（ ）。", "", "防止地电位差造成二次电流分流或保护误动，反措硬性规定CT二次回路必须且只能有一点接地。", "A", "只允许有一点接地", "允许两点接地", "必须三相分别接地", "不允许接地"]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(singleData), "单选题");
+
+            // Sheet 2: 多选题
+            const multiData = [
+              ["说明：每个Sheet均忽略第1行说明文本，从第2行读取表头，第3行开始读取数据。"],
+              ["题型", "题目来源", "专业类别", "题干内容", "空列/保留", "题目解析", "正确答案", "选项A", "选项B", "选项C", "选项D"],
+              ["多选题", "变压器保护运行规程", "变压器保护", "变压器瓦斯保护能够反映变压器内部哪些故障（ ）。", "", "瓦斯保护主要反映变压器油箱内部绕组相间短路、匝间短路及铁芯过热故障。", "ABC", "绕组相间短路", "绕组匝间短路", "铁芯局部发热", "变压器套管外部闪络"]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(multiData), "多选题");
+
+            // Sheet 3: 判断题 (此表无选项列！)
+            const judgeData = [
+              ["说明：判断题Sheet无选项列，系统自动生成‘正确’与‘错误’两项，G列填‘正确’或‘错误’。"],
+              ["题型", "题目来源", "专业类别", "题干内容", "空列/保留", "题目解析", "正确答案"],
+              ["判断题", "电网重大反事故技术措施", "二次回路与反措", "双重化配置的两套微机保护其跳闸回路可以共用同一根电缆引至断路器机构。", "", "反措明确规定：双重化配置的保护，其跳闸回路、直流电源等必须完全独立，严禁共用电缆。", "错误"]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(judgeData), "判断题");
+
+            XLSX.writeFile(wb, "电气二次考试题库导入模板.xlsx");
+            showToast('已下载规范 Excel 题库模板');
+          };
+
+          // 手势滑动
+          const handleTouchStart = (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+          };
+          const handleTouchMove = (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+          };
+          const handleTouchEnd = () => {
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+            if (Math.abs(deltaX) > 50 && Math.abs(deltaY) < 30) {
+              if (deltaX < 0) nextQuestion();
+              else prevQuestion();
+            }
+          };
+
+          // 键盘快捷键 (支持 A-D 答题、左箭头上一题、右箭头与Enter下一题)
+          const handleKeyDown = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+            const key = e.key.toUpperCase();
+            if (['A', 'B', 'C', 'D'].includes(key)) {
+              if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
+                handleOptionClick(key);
+              }
+            } else if (e.key === 'ArrowLeft') {
+              prevQuestion();
+            } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+              if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
+                // 如果是多选题且未提交，Enter键优先执行提交操作
+                if (currentQuestion.value?.type === '多选题' && !shouldShowResult.value && multiSelections.value.length > 0) {
+                  submitMultiChoice();
+                } else {
+                  nextQuestion();
+                }
+              }
+            }
+          };
+
+          // 初始化题库
+          const initDefaultSampleBank = async () => {
+            const sampleBank = {
+              id: 'qb_sample_electrical_secondary',
+              name: '电气二次专业经典冲刺真题库',
+              createTime: Date.now(),
+              questions: SAMPLE_QUESTIONS,
+              records: {},
+              currentIndex: 0,
+              wrongBook: {},
+              favorites: []
+            };
+            await localforage.setItem(sampleBank.id, sampleBank);
+            await localforage.setItem('app_active_bank_id', sampleBank.id);
+            banks.value = [sampleBank];
+            currentBankId.value = sampleBank.id;
+          };
+
+          const loadAllBanksFromStorage = async () => {
+            try {
+              const loadedBanks = [];
+              await localforage.iterate((value, key) => {
+                if (key.startsWith('qb_')) {
+                  loadedBanks.push(value);
+                }
+              });
+
+              if (loadedBanks.length === 0) {
+                await initDefaultSampleBank();
+              } else {
+                banks.value = loadedBanks;
+                const savedActiveId = await localforage.getItem('app_active_bank_id');
+                currentBankId.value = (savedActiveId && loadedBanks.some(b => b.id === savedActiveId)) ? savedActiveId : loadedBanks[0].id;
+              }
+            } catch (err) {
+              console.error('Storage load failed:', err);
+              await initDefaultSampleBank();
+            }
+          };
+
+          onMounted(async () => {
+            await loadAllBanksFromStorage();
+            window.addEventListener('keydown', handleKeyDown);
+          });
+
+          onUnmounted(() => {
+            clearAutoNextTimer();
+            window.removeEventListener('keydown', handleKeyDown);
+            clearInterval(examTimer.value);
+          });
+
+          return {
+            currentTab,
+            banks,
+            currentBankId,
+            currentBank,
+            currentBankAllQuestions,
+            currentIndex,
+            studyMode,
+            selectedType,
+            selectedCategory,
+            selectedDifficulty,
+            autoNextOnCorrect,
+            toggleAutoNext,
+            openCardDrawer,
+            multiSelections,
+            toastMsg,
+
+            // Exam
+            isExamMode,
+            examTimeLeft,
+            examReport,
+            examConfig,
+            bankSingleCount,
+            bankMultiCount,
+            bankJudgeCount,
+            calculatedExamTotalScore,
+
+            // Computed
+            categories,
+            categoryStats,
+            wrongQuestionList,
+            practiceFilteredList,
+            currentList,
+            currentQuestion,
+            currentRecord,
+            shouldShowResult,
+            hasActiveFilter,
+            answeredCount,
+            accuracyRate,
+            wrongQuestionCount,
+            favoriteCount,
+            overallProgressPercent,
+
+            // Methods
+            switchTab,
+            resumeLastPractice,
+            startCategoryPractice,
+            onFilterChanged,
+            resetFilters,
+            handleOptionClick,
+            submitMultiChoice,
+            prevQuestion,
+            nextQuestion,
+            jumpToQuestion,
+            jumpToNextUnanswered,
+            jumpToNextWrong,
+            toggleFavorite,
+            isFavorite,
+            getFormattedCorrectAnswer,
+            getWrongStreak,
+            isOptionCorrect,
+            isOptionUserSelectedWrong,
+            getOptionClass,
+            getOptionBadgeClass,
+            getCardItemClass,
+
+            // Exam Methods
+            startMockExam,
+            handleExamOptionClick,
+            isExamOptionSelected,
+            getExamOptionClass,
+            confirmSubmitExam,
+            reviewExamErrors,
+            exitExamReport,
+            formatTime,
+
+            // Bank Methods
+            switchBank,
+            resetBankProgress,
+            deleteBank,
+            exportBankJson,
+            getBankWrongCount,
+            loadSampleBank,
+            handleFileUpload,
+            downloadExcelTemplate,
+
+            // Gestures
+            handleTouchStart,
+            handleTouchMove,
+            handleTouchEnd
+          };
+        }
+      });
+
+      app.mount('#app');
+    </script>
+  </body>
+</html>
