@@ -53,6 +53,14 @@
         scrollbar-width: none;
       }
       [v-cloak] { display: none; }
+      #page-exam, #exam-page, .exam-container {
+        display: flex !important;
+        flex-direction: column;
+        background-color: #f8fafc !important;
+        position: relative;
+        z-index: 10;
+        width: 100%;
+      }
     </style>
   </head>
   <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
@@ -60,71 +68,131 @@
       
       <!-- ================= 1. 顶部 Header 与 全局导航栏 ================= -->
       <header id="app-header" class="sticky top-0 z-30 bg-slate-900 text-white shadow-lg safe-top">
-        <!-- Top Info Row -->
-        <div class="px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
-          <div class="flex items-center space-x-2 truncate">
-            <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow text-sm shrink-0">⚡</div>
-            <h1 class="font-bold text-sm sm:text-base tracking-wide truncate">电气二次技能考题宝</h1>
+        <!-- 手机端专用极简顶栏 (只保留核心导航与题库切换，高度压缩至最窄) -->
+        <div class="sm:hidden flex items-center justify-between px-1.5 py-1 bg-slate-900 border-b border-slate-800 gap-1 h-9">
+          <!-- 核心 5 个胶囊导航切换入口 -->
+          <div class="flex items-center space-x-0.5 overflow-x-auto scrollbar-none py-0.5 shrink min-w-0">
+            <button 
+              id="mobile-nav-home"
+              @click="switchTab('home')" 
+              :class="currentTab === 'home' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2 py-0.5 rounded text-xs whitespace-nowrap transition shrink-0">
+              首页
+            </button>
+
+            <button 
+              id="mobile-nav-practice"
+              @click="switchTab('practice')" 
+              :class="currentTab === 'practice' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2 py-0.5 rounded text-xs whitespace-nowrap transition shrink-0">
+              练习
+            </button>
+
+            <button 
+              id="mobile-nav-exam"
+              @click="switchTab('exam')" 
+              :class="currentTab === 'exam' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2 py-0.5 rounded text-xs whitespace-nowrap transition shrink-0">
+              模考
+            </button>
+
+            <button 
+              id="mobile-nav-wrong"
+              @click="switchTab('wrong')" 
+              :class="currentTab === 'wrong' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2 py-0.5 rounded text-xs whitespace-nowrap transition shrink-0 relative">
+              <span>错题</span>
+              <span v-if="wrongQuestionCount > 0" class="ml-0.5 px-1 py-0.2 text-[9px] bg-rose-500 text-white font-bold rounded-full">{{ wrongQuestionCount }}</span>
+            </button>
+
+            <button 
+              id="mobile-nav-banks"
+              @click="switchTab('banks')" 
+              :class="currentTab === 'banks' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+              class="px-2 py-0.5 rounded text-xs whitespace-nowrap transition shrink-0">
+              题库
+            </button>
           </div>
 
-          <!-- Current Bank Switcher -->
+          <!-- 手机端当前题库选择下拉按钮 (高度极简压缩) -->
           <button 
+            id="mobile-bank-switcher"
             @click="currentTab = 'banks'" 
-            class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-700 transition shrink-0">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="truncate max-w-[110px] sm:max-w-[160px]">{{ currentBank ? currentBank.name : '选择题库' }}</span>
-            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            class="flex items-center space-x-1 bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded text-[11px] font-medium border border-slate-700 text-slate-200 transition shrink-0 max-w-[105px]"
+            :title="'当前题库: ' + (currentBank ? currentBank.name : '选择题库')">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+            <span class="truncate">{{ currentBank ? currentBank.name : '选题库' }}</span>
+            <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
         </div>
 
-        <!-- 5 个全局切换入口 Navigation Tabs -->
-        <nav class="flex items-center justify-between px-2 sm:px-4 py-1.5 overflow-x-auto scrollbar-none bg-slate-900/95 text-xs sm:text-sm">
-          <button 
-            id="nav-home"
-            @click="switchTab('home')" 
-            :class="currentTab === 'home' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-            <span>首页</span>
-          </button>
+        <!-- PC / 平板端顶部顶栏 (两层设计：Logo+题库切换 + 宽版导航) -->
+        <div class="hidden sm:block">
+          <div class="px-4 py-2.5 flex items-center justify-between border-b border-slate-800">
+            <div class="flex items-center space-x-2 truncate">
+              <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow text-sm shrink-0">⚡</div>
+              <h1 class="font-bold text-base tracking-wide truncate">电气二次技能考题宝</h1>
+            </div>
 
-          <button 
-            id="nav-practice"
-            @click="switchTab('practice')" 
-            :class="currentTab === 'practice' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-            <span>单项练习</span>
-          </button>
+            <!-- Current Bank Switcher -->
+            <button 
+              @click="currentTab = 'banks'" 
+              class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-700 transition shrink-0">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="truncate max-w-[160px]">{{ currentBank ? currentBank.name : '选择题库' }}</span>
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+          </div>
 
-          <button 
-            id="nav-exam"
-            @click="switchTab('exam')" 
-            :class="currentTab === 'exam' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span>模拟考试</span>
-          </button>
+          <!-- PC 端导航 Tabs -->
+          <nav class="flex items-center justify-between px-4 py-1.5 overflow-x-auto scrollbar-none bg-slate-900/95 text-sm">
+            <button 
+              id="nav-home"
+              @click="switchTab('home')" 
+              :class="currentTab === 'home' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+              <span>首页</span>
+            </button>
 
-          <button 
-            id="nav-wrong"
-            @click="switchTab('wrong')" 
-            :class="currentTab === 'wrong' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0 relative">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            <span>错题消斩</span>
-            <span v-if="wrongQuestionCount > 0" class="ml-0.5 px-1.5 py-0.2 text-[10px] bg-rose-500 text-white font-bold rounded-full">{{ wrongQuestionCount }}</span>
-          </button>
+            <button 
+              id="nav-practice"
+              @click="switchTab('practice')" 
+              :class="currentTab === 'practice' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+              <span>单项练习</span>
+            </button>
 
-          <button 
-            id="nav-banks"
-            @click="switchTab('banks')" 
-            :class="currentTab === 'banks' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
-            class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 4h16"/></svg>
-            <span>题库管理</span>
-          </button>
-        </nav>
+            <button 
+              id="nav-exam"
+              @click="switchTab('exam')" 
+              :class="currentTab === 'exam' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>模拟考试</span>
+            </button>
+
+            <button 
+              id="nav-wrong"
+              @click="switchTab('wrong')" 
+              :class="currentTab === 'wrong' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0 relative">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <span>错题消斩</span>
+              <span v-if="wrongQuestionCount > 0" class="ml-0.5 px-1.5 py-0.2 text-[10px] bg-rose-500 text-white font-bold rounded-full">{{ wrongQuestionCount }}</span>
+            </button>
+
+            <button 
+              id="nav-banks"
+              @click="switchTab('banks')" 
+              :class="currentTab === 'banks' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+              class="flex items-center space-x-1 px-3 py-1.5 rounded-lg whitespace-nowrap transition shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7c0-2-1.5-3-3.5-3h-9C5.5 4 4 5 4 7zm0 4h16"/></svg>
+              <span>题库管理</span>
+            </button>
+          </nav>
+        </div>
       </header>
 
       <!-- ================= 2. 页面视图路由区域 ================= -->
@@ -147,10 +215,16 @@
 
         <!-- 总体数据统计仪表盘 (总体刷题进度、平均正确率等) -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div class="text-xs text-slate-500 font-medium">总体刷题进度</div>
+          <div 
+            id="card-progress"
+            @click="resumeLastPractice"
+            class="bg-white hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 p-4 rounded-xl shadow-sm hover:shadow transition-all duration-150 cursor-pointer active:scale-95 group select-none">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 group-hover:text-blue-700 font-medium transition-colors">总体刷题进度</div>
+              <svg class="w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </div>
             <div class="mt-1 flex items-baseline space-x-1">
-              <span class="text-xl sm:text-2xl font-black text-slate-900">{{ answeredCount }}</span>
+              <span class="text-xl sm:text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors">{{ answeredCount }}</span>
               <span class="text-xs text-slate-400">/ {{ currentBankAllQuestions.length }} 题</span>
             </div>
             <div class="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
@@ -158,29 +232,55 @@
             </div>
           </div>
 
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <div 
+            id="card-accuracy"
+            class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div class="text-xs text-slate-500 font-medium">平均正确率</div>
             <div class="mt-1 text-xl sm:text-2xl font-black text-emerald-600">{{ accuracyRate }}%</div>
             <div class="text-[10px] text-slate-400 mt-1">已答 {{ answeredCount }} 题中的胜率</div>
           </div>
 
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div class="text-xs text-slate-500 font-medium">待消灭错题</div>
-            <div class="mt-1 text-xl sm:text-2xl font-black text-rose-600">{{ wrongQuestionCount }}</div>
-            <div class="text-[10px] text-rose-400 mt-1">需连对2次方可消灭</div>
+          <div 
+            id="card-wrong"
+            @click="switchTab('wrong')"
+            class="bg-white hover:bg-rose-50/70 border border-slate-200 hover:border-rose-300 p-4 rounded-xl shadow-sm hover:shadow transition-all duration-150 cursor-pointer active:scale-95 group select-none">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 group-hover:text-rose-700 font-medium transition-colors">待消灭错题</div>
+              <svg class="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="mt-1 text-xl sm:text-2xl font-black text-rose-600 group-hover:text-rose-700 transition-colors">{{ wrongQuestionCount }}</div>
+            <div class="text-[10px] text-rose-500 mt-1 flex items-center justify-between">
+              <span>需连对2次方可消灭</span>
+              <span class="font-semibold opacity-70 group-hover:opacity-100 flex items-center">
+                <span>去斩消</span>
+                <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </span>
+            </div>
           </div>
 
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div class="text-xs text-slate-500 font-medium">重点收藏</div>
-            <div class="mt-1 text-xl sm:text-2xl font-black text-amber-500">{{ favoriteCount }}</div>
-            <div class="text-[10px] text-amber-600 mt-1">标记疑难与核心考点</div>
+          <div 
+            id="card-favorites"
+            @click="startFavoritePractice"
+            class="bg-white hover:bg-amber-50/70 border border-slate-200 hover:border-amber-300 p-4 rounded-xl shadow-sm hover:shadow transition-all duration-150 cursor-pointer active:scale-95 group select-none">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 group-hover:text-amber-800 font-medium transition-colors">重点收藏</div>
+              <svg class="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            </div>
+            <div class="mt-1 text-xl sm:text-2xl font-black text-amber-500 group-hover:text-amber-600 transition-colors">{{ favoriteCount }}</div>
+            <div class="text-[10px] text-amber-600 mt-1 flex items-center justify-between">
+              <span>标记疑难与核心考点</span>
+              <span class="font-bold text-amber-700 opacity-80 group-hover:opacity-100 flex items-center">
+                <span>去练习</span>
+                <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- 快捷入口区 (包含：一键开始上次练习) -->
+        <!-- 快捷入口区 (包含：一键开始上次练习、重点收藏专攻、错题专项消斩、全真模拟考试) -->
         <div class="space-y-2">
           <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">常用快捷入口</div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <!-- 一键开始上次练习 -->
             <button 
               id="btn-resume-practice"
@@ -188,11 +288,26 @@
               class="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-xl shadow-md transition flex items-center justify-between text-left group">
               <div>
                 <div class="text-xs text-blue-200 font-medium">立即恢复做题</div>
-                <div class="text-base font-bold mt-0.5">一键开始上次练习</div>
+                <div class="text-base font-bold mt-0.5">开始上次练习</div>
                 <div class="text-[11px] text-blue-200 mt-1">停留在：第 {{ (currentBank?.currentIndex || 0) + 1 }} 题</div>
               </div>
-              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
+              <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+              </div>
+            </button>
+
+            <!-- 重点收藏专项强化 -->
+            <button 
+              id="btn-quick-favorites"
+              @click="startFavoritePractice" 
+              class="bg-white hover:bg-amber-50/80 border border-slate-200 hover:border-amber-300 p-4 rounded-xl shadow-sm transition flex items-center justify-between text-left group">
+              <div>
+                <div class="text-xs text-amber-600 font-semibold">难点标记</div>
+                <div class="text-base font-bold text-slate-800 mt-0.5">重点收藏专攻</div>
+                <div class="text-[11px] text-slate-500 mt-1">当前存留 {{ favoriteCount }} 道重点题</div>
+              </div>
+              <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition shrink-0">
+                <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
               </div>
             </button>
 
@@ -206,7 +321,7 @@
                 <div class="text-base font-bold text-slate-800 mt-0.5">错题专项消斩</div>
                 <div class="text-[11px] text-slate-500 mt-1">当前存留 {{ wrongQuestionCount }} 道错题</div>
               </div>
-              <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center group-hover:scale-110 transition">
+              <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center group-hover:scale-110 transition shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
               </div>
             </button>
@@ -221,7 +336,7 @@
                 <div class="text-base font-bold text-slate-800 mt-0.5">全真模拟考试</div>
                 <div class="text-[11px] text-slate-500 mt-1">智能组卷 · 实时评分</div>
               </div>
-              <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition">
+              <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
             </button>
@@ -264,14 +379,29 @@
       <!-- ---------------- TAB B: 【单项练习】 ---------------- -->
       <section v-if="currentTab === 'practice'" id="page-practice" class="flex-1 flex flex-col">
         
+        <!-- 重点收藏专项练习提示横幅 (若处于收藏专练模式) -->
+        <div v-if="isFavoritesPractice" id="banner-favorites-practice" class="bg-amber-50 border-b border-amber-200 px-3 py-1.5 flex items-center justify-between text-xs text-amber-950 shadow-xs">
+          <div class="flex items-center space-x-1.5 font-bold">
+            <svg class="w-4 h-4 text-amber-500 fill-current shrink-0" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span class="text-amber-900 font-extrabold text-xs sm:text-sm">重点收藏专项练习 (共 {{ favoriteQuestionList.length }} 题)</span>
+          </div>
+          <button 
+            id="btn-exit-favorites-practice"
+            @click="exitFavoritePractice" 
+            class="px-2.5 py-1 bg-white hover:bg-amber-100 border border-amber-300 active:scale-95 rounded-md text-[11px] font-semibold text-amber-900 transition flex items-center space-x-1 cursor-pointer shadow-xs">
+            <span>退出收藏模式</span>
+            <svg class="w-3 h-3 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
         <!-- 顶部多维度组合筛选栏 (题型、专业类别C列、题目难度、背/答模式) -->
-        <div class="bg-white border-b border-slate-200 px-4 py-3 shadow-sm space-y-2.5">
+        <div class="bg-white border-b border-slate-200 px-2.5 py-1.5 sm:px-4 sm:py-3 shadow-xs sm:shadow-sm space-y-1 sm:space-y-2.5">
           <!-- Filter Controls Row 1: Type, Category, Difficulty -->
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-3 gap-1 sm:gap-2">
             <!-- 题目类型 -->
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">题目类型</label>
-              <select v-model="selectedType" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+              <label class="hidden sm:block text-[11px] font-semibold text-slate-500 mb-1">题目类型</label>
+              <select v-model="selectedType" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-[11px] sm:text-xs rounded-md sm:rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none truncate h-7 sm:h-auto">
                 <option value="全部">全部题型</option>
                 <option value="单选题">单选题</option>
                 <option value="多选题">多选题</option>
@@ -281,8 +411,8 @@
 
             <!-- 专业类别 (动态提取 C 列数据) -->
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">专业类别 (C列)</label>
-              <select v-model="selectedCategory" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none truncate">
+              <label class="hidden sm:block text-[11px] font-semibold text-slate-500 mb-1">专业类别 (C列)</label>
+              <select v-model="selectedCategory" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-[11px] sm:text-xs rounded-md sm:rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none truncate h-7 sm:h-auto">
                 <option value="全部">全部分类 ({{ categories.length }})</option>
                 <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
               </select>
@@ -290,8 +420,8 @@
 
             <!-- 题目难度 -->
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">题目难度</label>
-              <select v-model="selectedDifficulty" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg px-2 py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+              <label class="hidden sm:block text-[11px] font-semibold text-slate-500 mb-1">题目难度</label>
+              <select v-model="selectedDifficulty" @change="onFilterChanged" class="w-full bg-slate-50 border border-slate-200 text-[11px] sm:text-xs rounded-md sm:rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none truncate h-7 sm:h-auto">
                 <option value="全部">全部难度</option>
                 <option value="易">容易</option>
                 <option value="中">中等</option>
@@ -301,78 +431,97 @@
           </div>
 
           <!-- Status Bar: Matches count & Switch Controls (答对自动下一题 + 答题/背题模式) -->
-          <div class="flex items-center justify-between text-xs pt-1.5 border-t border-slate-100 flex-wrap gap-2">
-            <div class="flex items-center space-x-2 text-slate-600">
-              <span>匹配到 <strong class="text-blue-600">{{ currentList.length }}</strong> 题</span>
-              <span class="text-slate-300">|</span>
+          <div class="flex items-center justify-between text-[11px] sm:text-xs pt-1 sm:pt-1.5 border-t border-slate-100 flex-wrap gap-1">
+            <div class="flex items-center space-x-1 sm:space-x-2 text-slate-600">
+              <span v-if="isFavoritesPractice" class="inline-flex items-center space-x-0.5 bg-amber-100 text-amber-900 font-bold px-1.5 py-0.2 rounded text-[10px]">
+                <svg class="w-3 h-3 text-amber-600 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                <span>收藏模式</span>
+              </span>
+              <span>匹配 <strong class="text-blue-600">{{ currentList.length }}</strong> 题</span>
+              <span class="text-slate-300">·</span>
               <span>进度: <strong class="text-slate-900">{{ currentList.length > 0 ? currentIndex + 1 : 0 }}</strong>/{{ currentList.length }}</span>
-              <button v-if="hasActiveFilter" @click="resetFilters" class="text-rose-600 hover:underline text-[11px] ml-1">清除筛选</button>
+              <button v-if="hasActiveFilter" @click="resetFilters" class="text-rose-600 hover:underline text-[10px] sm:text-[11px] ml-0.5">清空</button>
             </div>
 
             <!-- 控制区：答对自动下一题 开关 + 答题/背题模式 Switch -->
-            <div class="flex items-center space-x-2 sm:space-x-2.5">
-              <!-- 答对自动下一题 Toggle 开关 -->
+            <div class="flex items-center space-x-1 sm:space-x-2">
+              <!-- 答对自动下一题 Toggle 开关 (手机端紧凑化) -->
               <button 
                 id="toggle-auto-next-practice"
                 @click="toggleAutoNext" 
                 type="button"
                 :class="autoNextOnCorrect ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
-                class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer select-none"
+                class="flex items-center space-x-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg border text-[10px] sm:text-xs font-medium transition cursor-pointer select-none"
                 :title="autoNextOnCorrect ? '已开启：答对延迟0.5秒自动下一题，答错停留在当前页' : '已关闭：答对答错均停留在当前页，请手动点击下一题'">
                 <!-- Toggle Switch UI -->
                 <span 
                   :class="autoNextOnCorrect ? 'bg-blue-600' : 'bg-slate-300'"
-                  class="w-7 h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
+                  class="w-6 sm:w-7 h-3.5 sm:h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
                   <span 
-                    :class="autoNextOnCorrect ? 'translate-x-3' : 'translate-x-0'"
-                    class="w-3 h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
+                    :class="autoNextOnCorrect ? 'translate-x-2.5 sm:translate-x-3' : 'translate-x-0'"
+                    class="w-2.5 sm:w-3 h-2.5 sm:h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
                 </span>
-                <span class="text-[11px] font-semibold whitespace-nowrap">答对自动下一题</span>
+                <span class="whitespace-nowrap">答对自动下题</span>
               </button>
 
               <!-- 答题模式 vs 背题模式 Switch -->
-              <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 shrink-0">
+              <div class="flex bg-slate-100 p-0.5 rounded-md sm:rounded-lg border border-slate-200 shrink-0 text-[10px] sm:text-xs">
                 <button 
                   @click="studyMode = 'practice'" 
-                  :class="studyMode === 'practice' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800'"
-                  class="px-2.5 py-1 rounded-md text-xs transition">
-                  答题模式
+                  :class="studyMode === 'practice' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800'"
+                  class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded transition">
+                  答题
                 </button>
                 <button 
                   @click="studyMode = 'recite'" 
-                  :class="studyMode === 'recite' ? 'bg-emerald-600 text-white font-bold shadow-sm' : 'text-slate-500 hover:text-slate-800'"
-                  class="px-2.5 py-1 rounded-md text-xs transition">
-                  背题模式
+                  :class="studyMode === 'recite' ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800'"
+                  class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded transition">
+                  背题
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 单项练习试题卡片容器 (支持手势滑屏切题) -->
+        <!-- 单项练习试题卡片容器 (支持手势滑屏切题，紧凑布局适配手机端) -->
         <div 
           id="practice-container"
           @touchstart="handleTouchStart"
           @touchmove="handleTouchMove"
           @touchend="handleTouchEnd"
-          class="flex-1 p-4 sm:p-5 flex flex-col space-y-4">
+          class="flex-1 p-2 sm:p-5 flex flex-col space-y-2 sm:space-y-4">
           
           <!-- 空状态提示 -->
-          <div v-if="currentList.length === 0" class="flex-1 flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-6">
-            <div class="w-14 h-14 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">📋</div>
-            <h3 class="text-base font-bold text-slate-800">当前组合筛选下无匹配试题</h3>
-            <p class="text-xs text-slate-500 max-w-sm">请尝试放宽筛选条件，或在“题库管理”中导入更多该分类的题库。</p>
-            <button @click="resetFilters" class="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 shadow transition">重置所有筛选</button>
+          <div v-if="currentList.length === 0" class="flex-1 flex flex-col items-center justify-center py-12 text-center space-y-2.5 bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6">
+            <div 
+              :class="isFavoritesPractice ? 'bg-amber-50 text-amber-500' : 'bg-blue-50 text-blue-600'" 
+              class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold">
+              {{ isFavoritesPractice ? '⭐' : '📋' }}
+            </div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-800">
+              {{ isFavoritesPractice ? '当前收藏夹暂无匹配试题' : '当前组合筛选下无匹配试题' }}
+            </h3>
+            <p class="text-[11px] sm:text-xs text-slate-500 max-w-sm">
+              {{ isFavoritesPractice ? '您可在刷题或模考复盘时，点击题目右上角的星标添加到重点收藏。' : '请尝试放宽筛选条件，或在“题库管理”中导入更多该分类的题库。' }}
+            </p>
+            <div class="flex items-center space-x-2">
+              <button v-if="isFavoritesPractice" @click="exitFavoritePractice" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer">
+                退出收藏模式 / 返回全部试题
+              </button>
+              <button v-else @click="resetFilters" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer">
+                重置所有筛选
+              </button>
+            </div>
           </div>
 
           <!-- 专项试题展示卡片 -->
-          <div v-else class="space-y-4">
+          <div v-else class="space-y-2 sm:space-y-4">
             
-            <!-- 题干卡片 -->
-            <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
-              <div class="flex items-start justify-between gap-2">
-                <div class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">
-                  <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle"
+            <!-- 题干卡片 (极度压缩边距，提高屏效比) -->
+            <div class="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-xs sm:shadow-sm border border-slate-200">
+              <div class="flex items-start justify-between gap-1.5">
+                <div class="text-sm sm:text-base font-medium text-slate-900 leading-snug sm:leading-relaxed">
+                  <span class="inline-flex items-center text-[10px] sm:text-xs font-bold px-1.5 py-0.2 rounded mr-1 align-middle"
                     :class="currentQuestion.type === '多选题' ? 'bg-purple-100 text-purple-700' : currentQuestion.type === '判断题' ? 'bg-cyan-100 text-cyan-700' : 'bg-blue-100 text-blue-700'">
                     {{ currentQuestion.type }}
                   </span>
@@ -382,108 +531,114 @@
                 <!-- 收藏星标按钮 -->
                 <button 
                   @click="toggleFavorite(currentQuestion.id)" 
-                  class="p-2 rounded-xl border transition shrink-0"
-                  :class="isFavorite(currentQuestion.id) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-400 hover:text-amber-500 border-slate-200'">
-                  <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                  class="p-1 sm:p-2 rounded-lg border transition shrink-0"
+                  :class="isFavorite(currentQuestion.id) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-400 hover:text-amber-500 border-slate-200'"
+                  title="收藏本题">
+                  <svg class="w-4 h-4 sm:w-5 sm:h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
                 </button>
               </div>
 
-              <!-- 题目标签属性 (专业类别、难度、题目出处) -->
-              <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span v-if="currentQuestion.category" class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium border border-slate-200">
+              <!-- 题目标签属性 (专业类别、难度、出处极度紧凑化) -->
+              <div class="mt-1.5 sm:mt-2.5 flex flex-wrap items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-slate-500">
+                <span v-if="currentQuestion.category" class="bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-medium border border-slate-200 truncate max-w-[140px]">
                   类别: {{ currentQuestion.category }}
                 </span>
-                <span v-if="currentQuestion.difficulty" class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                <span v-if="currentQuestion.difficulty" class="bg-amber-50 text-amber-700 px-1.5 py-0.2 rounded border border-amber-200">
                   难度: {{ currentQuestion.difficulty }}
                 </span>
-                <span v-if="currentQuestion.source" class="bg-slate-50 text-slate-500 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[200px]">
+                <span v-if="currentQuestion.source" class="bg-slate-50 text-slate-500 px-1.5 py-0.2 rounded border border-slate-200 truncate max-w-[160px]">
                   出处: {{ currentQuestion.source }}
                 </span>
               </div>
             </div>
 
-            <!-- 选项卡片列表 -->
-            <div class="space-y-2.5">
+            <!-- 选项卡片列表 (大幅减小上下边距与内部padding，占用屏幕高度<35%) -->
+            <div class="space-y-1.5 sm:space-y-2.5">
               <div 
                 v-for="opt in currentQuestion.options" 
                 :key="opt.key"
                 @click="handleOptionClick(opt.key)"
                 :class="getOptionClass(opt.key)"
-                class="w-full p-3.5 sm:p-4 rounded-xl border text-left transition-all duration-150 flex items-center space-x-3 cursor-pointer select-none">
+                class="w-full py-1.5 px-2.5 sm:py-3 sm:px-4 rounded-lg sm:rounded-xl border text-left transition-all duration-150 flex items-center space-x-2 sm:space-x-3 cursor-pointer select-none">
                 
-                <!-- 选项字母徽标 (A, B, C, D) -->
+                <!-- 选项字母徽标 (A, B, C, D) 紧凑徽标 -->
                 <span 
                   :class="getOptionBadgeClass(opt.key)"
-                  class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition-colors border">
+                  class="w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 transition-colors border">
                   {{ opt.key }}
                 </span>
 
                 <!-- 选项文本 -->
-                <div class="flex-1 text-sm sm:text-base font-normal text-slate-800 leading-normal">
+                <div class="flex-1 text-xs sm:text-sm font-normal text-slate-800 leading-snug sm:leading-normal">
                   {{ opt.text }}
                 </div>
 
                 <!-- 答案反馈图标 -->
                 <div v-if="shouldShowResult" class="shrink-0">
-                  <svg v-if="isOptionCorrect(opt.key)" class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <svg v-else-if="isOptionUserSelectedWrong(opt.key)" class="w-6 h-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                  <svg v-if="isOptionCorrect(opt.key)" class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                  <svg v-else-if="isOptionUserSelectedWrong(opt.key)" class="w-4 h-4 sm:w-5 sm:h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                 </div>
               </div>
             </div>
 
             <!-- 多选题提交按钮 (当尚未提交且处于答题模式时) -->
-            <div v-if="currentQuestion.type === '多选题' && !shouldShowResult && studyMode === 'practice'" class="pt-2">
+            <div v-if="currentQuestion.type === '多选题' && !shouldShowResult && studyMode === 'practice'" class="pt-1">
               <button 
                 @click="submitMultiChoice" 
                 :disabled="multiSelections.length === 0"
-                class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition flex items-center justify-center space-x-2 text-sm">
+                class="w-full py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg sm:rounded-xl shadow transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <span>确认提交本题答案 (已选 {{ multiSelections.join(', ') || '0 项' }})</span>
               </button>
             </div>
 
-            <!-- 核心要求 4：答题界面答案与解析渲染 (点击提交后必须明确展示正确答案及对应文本 + F列解析) -->
-            <div v-if="shouldShowResult || studyMode === 'recite'" class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3.5">
+            <!-- 答案与解析呈现区 (上移至选项下方緊鄰位置，核心解析全显，绝不挤出屏幕) -->
+            <div 
+              v-if="shouldShowResult || studyMode === 'recite'" 
+              id="answer-analysis-box"
+              class="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-200 shadow-xs space-y-1.5 sm:space-y-2.5">
               
-              <!-- 正确答案呈现卡片 -->
-              <div class="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 space-y-1.5">
-                <div class="flex items-center justify-between">
-                  <div class="text-xs font-bold text-emerald-800 uppercase tracking-wider">标准答案</div>
-                  <div v-if="currentRecord" class="text-xs font-bold">
-                    <span v-if="currentRecord.isCorrect" class="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">作答正确</span>
-                    <span v-else class="text-rose-700 bg-rose-100 px-2 py-0.5 rounded">您的作答: {{ currentRecord.userAnswer || '未作答' }}</span>
-                  </div>
+              <!-- 正确答案呈现卡片 (紧凑高对比度呈现) -->
+              <div class="bg-emerald-50/90 py-1.5 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-emerald-200 flex items-center justify-between gap-1.5 flex-wrap">
+                <div class="text-xs sm:text-sm font-extrabold text-emerald-900 flex items-center space-x-1">
+                  <span class="text-emerald-800 font-bold shrink-0">正确答案：</span>
+                  <span class="text-emerald-700 font-black">{{ getFormattedCorrectAnswer(currentQuestion) }}</span>
                 </div>
-
-                <!-- 明确显示：“正确答案：[显示正确选项字母及对应文本]” -->
-                <div class="text-sm sm:text-base font-extrabold text-emerald-900 leading-snug">
-                  正确答案：<span class="text-emerald-700">{{ getFormattedCorrectAnswer(currentQuestion) }}</span>
+                
+                <div v-if="currentRecord" class="text-[11px] font-bold shrink-0">
+                  <span v-if="currentRecord.isCorrect" class="text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded flex items-center space-x-0.5">
+                    <svg class="w-3 h-3 text-emerald-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    <span>作答正确</span>
+                  </span>
+                  <span v-else class="text-rose-700 bg-rose-100/90 px-1.5 py-0.5 rounded flex items-center space-x-0.5">
+                    <svg class="w-3 h-3 text-rose-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                    <span>您选: {{ currentRecord.userAnswer || '未作答' }}</span>
+                  </span>
                 </div>
               </div>
 
-              <!-- 【试题解析与考点精析】区域 (必须展示 F 列的“题目解析”。若 F 列为空，则显示“暂无解析”) -->
+              <!-- 【试题解析与考点精析】区域 (展示F列解析，核心行数完整展现) -->
               <div class="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                <div class="font-bold text-slate-900 flex items-center space-x-1.5 mb-1.5">
-                  <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                  <span>【试题解析与考点精析】</span>
+                <div class="font-bold text-slate-900 flex items-center justify-between text-[11px] sm:text-xs mb-1">
+                  <div class="flex items-center space-x-1 text-slate-800">
+                    <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    <span>【试题解析与考点精析】</span>
+                  </div>
+                  <span v-if="currentQuestion.source" class="text-[10px] text-slate-400 font-normal truncate max-w-[140px]">
+                    出处: {{ currentQuestion.source }}
+                  </span>
                 </div>
-                <div class="text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 leading-relaxed whitespace-pre-wrap">
+                <div class="text-slate-700 bg-slate-50 py-1.5 px-2.5 sm:p-3 rounded-lg border border-slate-200/80 leading-relaxed whitespace-pre-wrap max-h-36 sm:max-h-48 overflow-y-auto text-[11px] sm:text-xs">
                   {{ currentQuestion.analysis && currentQuestion.analysis.trim() ? currentQuestion.analysis : '暂无解析' }}
                 </div>
               </div>
 
-              <!-- 题目出处展示 (B列) -->
-              <div v-if="currentQuestion.source" class="text-xs text-slate-500 flex items-center space-x-1 pt-1 border-t border-slate-100">
-                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                <span>题目出处：{{ currentQuestion.source }}</span>
-              </div>
-
-              <!-- 快捷下一题操作提示与按钮 (方便用户直接在卡片底部按键或点击切题) -->
-              <div v-if="shouldShowResult && currentIndex < currentList.length - 1" class="pt-2 flex items-center justify-between border-t border-slate-100">
-                <div class="text-[11px] text-slate-500 flex items-center space-x-1">
+              <!-- 快捷下一题操作提示与按钮 (方便直接在卡片底部按键或点击切题) -->
+              <div v-if="shouldShowResult && currentIndex < currentList.length - 1" class="pt-1.5 flex items-center justify-between border-t border-slate-100">
+                <div class="text-[10px] sm:text-[11px] text-slate-500 flex items-center space-x-1">
                   <span v-if="!autoNextOnCorrect" class="text-amber-700 font-medium flex items-center">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block mr-1"></span>
-                    停留在本页复盘中，请点击【下一题】或按键盘 Enter / → 继续
+                    停留在本页复盘，点击【下一题】继续
                   </span>
                   <span v-else-if="currentRecord && currentRecord.isCorrect" class="text-emerald-700 font-medium flex items-center">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1 animate-ping"></span>
@@ -491,15 +646,15 @@
                   </span>
                   <span v-else class="text-rose-700 font-medium flex items-center">
                     <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1"></span>
-                    答错停留在当前题复盘，请点击【下一题】或按 Enter 键继续
+                    答错停留在当前题复盘，点击【下一题】继续
                   </span>
                 </div>
                 <button 
                   @click="nextQuestion" 
-                  class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center space-x-1 shrink-0">
+                  class="px-2.5 py-1 sm:px-3.5 sm:py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-[11px] sm:text-xs font-bold rounded-lg shadow-xs transition flex items-center space-x-1 shrink-0">
                   <span>下一题</span>
                   <span class="hidden sm:inline text-[10px] bg-blue-500 px-1 py-0.2 rounded font-mono font-normal">Enter ↵</span>
-                  <svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                  <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
               </div>
             </div>
@@ -510,208 +665,332 @@
       </section>
 
       <!-- ---------------- TAB C: 【模拟考试】 ---------------- -->
-      <section v-if="currentTab === 'exam'" id="page-exam" class="flex-1 p-4 sm:p-6 flex flex-col space-y-4">
+      <section 
+        v-if="currentTab === 'exam'" 
+        id="page-exam" 
+        data-page="exam"
+        class="exam-container w-full min-h-[calc(100vh-120px)] bg-slate-50 relative z-10 flex flex-col p-3 sm:p-6 space-y-4">
         
-        <!-- 考场状态 A: 尚未开考，展示模考参数配置 -->
-        <div v-if="!isExamMode && !examReport" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
-          <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-            <div>
-              <h3 class="font-bold text-lg text-slate-900">全真模拟考试配置</h3>
-              <p class="text-xs text-slate-500">模拟实际机考规则，全封闭答题，提交后生成正式成绩报告</p>
+        <div id="exam-page" class="w-full flex-1 flex flex-col space-y-4">
+          
+          <!-- 兜底状态：题库无试题数据时的友好提示与引导 -->
+          <div v-if="!currentBank || currentBankAllQuestions.length === 0" class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center space-y-4 my-auto">
+            <div class="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-2xl font-bold border border-amber-200/60">
+              ⚠️
             </div>
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">⏱️</div>
-          </div>
-
-          <div class="space-y-4 text-xs sm:text-sm">
-            <!-- 考试时长 -->
-            <div>
-              <label class="block font-bold text-slate-700 mb-1.5">考试时长 (分钟)</label>
-              <div class="grid grid-cols-4 gap-2">
-                <button 
-                  v-for="d in [30, 45, 60, 90]" 
-                  :key="d"
-                  @click="examConfig.duration = d"
-                  :class="examConfig.duration === d ? 'bg-blue-600 text-white font-bold' : 'bg-slate-50 text-slate-700 border border-slate-200'"
-                  class="py-2 rounded-lg text-xs transition">
-                  {{ d }} 分钟
-                </button>
-              </div>
+            <div class="space-y-1.5">
+              <h3 class="font-bold text-lg text-slate-800">当前题库暂无试题</h3>
+              <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+                模拟考试需要抽取试题，当前题库尚未导入试题或题量为空。请前往【题库管理】导入 Excel 试题或选择已有试题的题库。
+              </p>
             </div>
-
-            <!-- 抽题数量与分值设置 -->
-            <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="font-bold text-slate-800">单选题</span>
-                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankSingleCount }} 题)</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input type="number" min="0" :max="bankSingleCount" v-model.number="examConfig.singleCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">题 ×</span>
-                  <input type="number" min="1" v-model.number="examConfig.singleScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">分</span>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="font-bold text-slate-800">多选题</span>
-                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankMultiCount }} 题)</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input type="number" min="0" :max="bankMultiCount" v-model.number="examConfig.multiCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">题 ×</span>
-                  <input type="number" min="1" v-model.number="examConfig.multiScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">分</span>
-                </div>
-              </div>
-
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="font-bold text-slate-800">判断题</span>
-                  <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankJudgeCount }} 题)</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                  <input type="number" min="0" :max="bankJudgeCount" v-model.number="examConfig.judgeCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">题 ×</span>
-                  <input type="number" min="1" v-model.number="examConfig.judgeScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
-                  <span class="text-slate-500">分</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 试卷满分与及格线动态计算 -->
-            <div class="flex items-center justify-between bg-blue-50 p-3.5 rounded-xl border border-blue-200 text-blue-950">
-              <span class="font-medium">预计试卷总分：<strong class="text-base font-bold">{{ calculatedExamTotalScore }}</strong> 分</span>
-              <span class="font-medium">合格标准 (60%)：<strong class="text-base font-bold text-emerald-700">{{ Math.round(calculatedExamTotalScore * 0.6) }}</strong> 分</span>
-            </div>
-
-            <!-- 开始考试按钮 -->
-            <button 
-              id="btn-start-exam"
-              @click="startMockExam" 
-              class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base shadow-lg shadow-blue-500/20 transition flex items-center justify-center space-x-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
-              <span>立即开始全真模拟考试</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 考场状态 B: 考试进行中 (答题中) -->
-        <div v-else-if="isExamMode" class="space-y-4">
-          <!-- 考场顶栏：倒计时与交卷按钮 -->
-          <div class="bg-slate-900 text-white px-4 py-3 rounded-xl flex items-center justify-between shadow">
-            <div class="flex items-center space-x-2">
-              <span class="text-xs text-slate-400">考场倒计时:</span>
-              <span class="text-sm font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded animate-pulse">
-                {{ formatTime(examTimeLeft) }}
-              </span>
-            </div>
-            <div class="flex items-center space-x-2">
-              <span class="text-xs text-slate-400">题号: {{ currentIndex + 1 }}/{{ examQuestions.length }}</span>
-              <button @click="confirmSubmitExam" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-lg text-xs font-bold shadow transition">
-                提前交卷
+            <div class="pt-2 flex flex-wrap justify-center gap-3">
+              <button 
+                @click="switchTab('banks')" 
+                class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 transition">
+                前往题库管理
+              </button>
+              <button 
+                @click="switchTab('home')" 
+                class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition">
+                返回首页
               </button>
             </div>
           </div>
 
-          <!-- 考试题目卡片 (全封闭，不显示对错) -->
-          <div v-if="currentQuestion" class="space-y-4">
-            <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
-              <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle bg-blue-100 text-blue-700">
-                {{ currentQuestion.type }}
-              </span>
-              <span class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">{{ currentQuestion.stem }}</span>
+          <!-- 考场状态 A: 尚未开考，展示模考参数配置 (题库有试题时) -->
+          <div v-else-if="!isExamMode && !examReport" class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-5">
+            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-lg text-slate-900">全真模拟考试配置</h3>
+                <p class="text-xs text-slate-500">模拟实际机考规则，全封闭答题，提交后生成正式成绩报告</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">⏱️</div>
             </div>
 
-            <!-- 选项卡片 -->
-            <div class="space-y-2.5">
-              <div 
-                v-for="opt in currentQuestion.options" 
-                :key="opt.key"
-                @click="handleExamOptionClick(opt.key)"
-                :class="getExamOptionClass(opt.key)"
-                class="w-full p-3.5 rounded-xl border text-left transition flex items-center space-x-3 cursor-pointer">
-                <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border"
-                  :class="isExamOptionSelected(opt.key) ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 text-slate-700 border-slate-200'">
-                  {{ opt.key }}
+            <!-- 当前题库信息提示条 -->
+            <div class="flex items-center justify-between bg-slate-50 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs">
+              <span class="text-slate-600">当前考场题库：<strong class="text-slate-900 font-semibold">{{ currentBank?.name || '默认题库' }}</strong></span>
+              <span class="text-blue-600 font-bold">总可用题量: {{ currentBankAllQuestions.length }} 题</span>
+            </div>
+
+            <div class="space-y-4 text-xs sm:text-sm">
+              <!-- 考试时长 -->
+              <div>
+                <label class="block font-bold text-slate-700 mb-1.5">考试时长 (分钟)</label>
+                <div class="grid grid-cols-4 gap-2">
+                  <button 
+                    v-for="d in [30, 45, 60, 90]" 
+                    :key="d"
+                    @click="examConfig.duration = d"
+                    :class="examConfig.duration === d ? 'bg-blue-600 text-white font-bold' : 'bg-slate-50 text-slate-700 border border-slate-200'"
+                    class="py-2 rounded-lg text-xs transition">
+                    {{ d }} 分钟
+                  </button>
+                </div>
+              </div>
+
+              <!-- 抽题数量与分值设置 -->
+              <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="font-bold text-slate-800">单选题</span>
+                    <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankSingleCount }} 题)</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <input type="number" min="0" :max="bankSingleCount" v-model.number="examConfig.singleCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">题 ×</span>
+                    <input type="number" min="1" v-model.number="examConfig.singleScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">分</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="font-bold text-slate-800">多选题</span>
+                    <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankMultiCount }} 题)</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <input type="number" min="0" :max="bankMultiCount" v-model.number="examConfig.multiCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">题 ×</span>
+                    <input type="number" min="1" v-model.number="examConfig.multiScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">分</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="font-bold text-slate-800">判断题</span>
+                    <span class="text-xs text-slate-500 ml-1">(库中存量: {{ bankJudgeCount }} 题)</span>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <input type="number" min="0" :max="bankJudgeCount" v-model.number="examConfig.judgeCount" class="w-16 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">题 ×</span>
+                    <input type="number" min="1" v-model.number="examConfig.judgeScore" class="w-12 bg-white border border-slate-200 rounded p-1 text-center font-bold" />
+                    <span class="text-slate-500">分</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 试卷满分与及格线动态计算 -->
+              <div class="flex items-center justify-between bg-blue-50 p-3.5 rounded-xl border border-blue-200 text-blue-950">
+                <span class="font-medium">预计试卷总分：<strong class="text-base font-bold">{{ calculatedExamTotalScore }}</strong> 分</span>
+                <span class="font-medium">合格标准 (60%)：<strong class="text-base font-bold text-emerald-700">{{ Math.round(calculatedExamTotalScore * 0.6) }}</strong> 分</span>
+              </div>
+
+              <!-- 开始考试按钮 -->
+              <button 
+                id="btn-start-exam"
+                @click="startMockExam" 
+                class="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-base shadow-lg shadow-blue-500/20 transition flex items-center justify-center space-x-2 cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+                <span>立即开始全真模拟考试</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 考场状态 B: 考试进行中 (答题中) -->
+          <div v-else-if="isExamMode" class="space-y-4">
+            <!-- 考场顶栏：倒计时与交卷按钮 -->
+            <div class="bg-slate-900 text-white px-3.5 py-3 rounded-xl flex items-center justify-between shadow">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs text-slate-400">考场倒计时:</span>
+                <span class="text-sm font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded animate-pulse">
+                  {{ formatTime(examTimeLeft) }}
                 </span>
-                <span class="flex-1 text-sm text-slate-800">{{ opt.text }}</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button 
+                  @click="openExamCardDrawer = true"
+                  class="bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+                  <span>题号: {{ currentIndex + 1 }}/{{ examQuestions.length }}</span>
+                  <span class="text-[10px] bg-blue-500/20 px-1 py-0.2 rounded text-blue-300">答题卡</span>
+                </button>
+                <button @click="confirmSubmitExam" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1 rounded-lg text-xs font-bold shadow transition cursor-pointer">
+                  交卷
+                </button>
               </div>
             </div>
+
+            <!-- 考试题目卡片 (全封闭，不显示对错) -->
+            <div v-if="currentQuestion" class="space-y-4">
+              <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="inline-block text-xs font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                    {{ currentQuestion.type }}
+                  </span>
+                  <span class="text-xs text-slate-400">
+                    第 {{ currentIndex + 1 }} 题 / 共 {{ examQuestions.length }} 题
+                  </span>
+                </div>
+                <div class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">{{ currentQuestion.stem }}</div>
+              </div>
+
+              <!-- 选项卡片 -->
+              <div class="space-y-2.5">
+                <div 
+                  v-for="opt in currentQuestion.options" 
+                  :key="opt.key"
+                  @click="handleExamOptionClick(opt.key)"
+                  :class="getExamOptionClass(opt.key)"
+                  class="w-full p-3.5 rounded-xl border text-left transition flex items-center space-x-3 cursor-pointer">
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border"
+                    :class="isExamOptionSelected(opt.key) ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-100 text-slate-700 border-slate-200'">
+                    {{ opt.key }}
+                  </span>
+                  <span class="flex-1 text-sm text-slate-800">{{ opt.text }}</span>
+                </div>
+              </div>
+
+              <!-- 考场题目切换与答题卡底部控制条 -->
+              <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center justify-between gap-2">
+                <button 
+                  @click="prevExamQuestion"
+                  :disabled="currentIndex <= 0"
+                  class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1">
+                  <span>◀ 上一题</span>
+                </button>
+                <button 
+                  @click="openExamCardDrawer = true"
+                  class="flex-1 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1">
+                  <span>📋 答题卡 (已答 {{ Object.keys(examAnswers).length }}/{{ examQuestions.length }})</span>
+                </button>
+                <button 
+                  @click="nextExamQuestion"
+                  :disabled="currentIndex >= examQuestions.length - 1"
+                  class="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow transition flex items-center justify-center space-x-1">
+                  <span>下一题 ▶</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 试题数据加载异常时的兜底卡片 -->
+            <div v-else class="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm text-center space-y-3">
+              <div class="text-amber-500 text-3xl">⚠️</div>
+              <p class="text-sm font-bold text-slate-700">当前试题数据加载异常</p>
+              <button @click="exitExamReport" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg shadow">
+                返回考试主页
+              </button>
+            </div>
           </div>
+
+          <!-- 考场状态 C: 考试结束成绩报告单 -->
+          <div v-else-if="examReport" class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-md space-y-5 text-center">
+            <div class="flex items-center justify-center">
+              <div class="w-20 h-20 rounded-full flex items-center justify-center border-4"
+                :class="examReport.passed ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-rose-500 text-rose-600 bg-rose-50'">
+                <span class="text-2xl font-black">{{ examReport.passed ? '合格' : '未达标' }}</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-3xl sm:text-4xl font-black" :class="examReport.passed ? 'text-emerald-600' : 'text-rose-600'">
+                {{ examReport.score }} <span class="text-base text-slate-400 font-normal">/ {{ examReport.totalScore }} 分</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">及格线 {{ examReport.passScore }} 分 · 用时 {{ formatTime(examReport.timeSpent) }}</p>
+            </div>
+
+            <!-- 各题型得分明细 -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span class="text-slate-500 block">单选题</span>
+                <span class="font-bold text-slate-800">{{ examReport.singleStats.score }}/{{ examReport.singleStats.totalScore }}分</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">多选题</span>
+                <span class="font-bold text-slate-800">{{ examReport.multiStats.score }}/{{ examReport.multiStats.totalScore }}分</span>
+              </div>
+              <div>
+                <span class="text-slate-500 block">判断题</span>
+                <span class="font-bold text-slate-800">{{ examReport.judgeStats.score }}/{{ examReport.judgeStats.totalScore }}分</span>
+              </div>
+            </div>
+
+            <!-- 复盘本场错题与返回按钮 -->
+            <div class="flex gap-2.5">
+              <button @click="reviewExamErrors" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition">
+                复盘本场错题 ({{ examReport.wrongQuestions.length }}题)
+              </button>
+              <button @click="exitExamReport" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+                返回练习主页
+              </button>
+            </div>
+          </div>
+
         </div>
 
-        <!-- 考场状态 C: 考试结束成绩报告单 -->
-        <div v-else-if="examReport" class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-md space-y-5 text-center">
-          <div class="flex items-center justify-center">
-            <div class="w-20 h-20 rounded-full flex items-center justify-center border-4"
-              :class="examReport.passed ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-rose-500 text-rose-600 bg-rose-50'">
-              <span class="text-2xl font-black">{{ examReport.passed ? '合格' : '未达标' }}</span>
+        <!-- 考场专用答题卡抽屉 -->
+        <div v-if="isExamMode && openExamCardDrawer" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
+          <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-fade-in">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h4 class="font-bold text-base text-slate-900">考场答题卡</h4>
+                <p class="text-xs text-slate-500">
+                  已答 <strong class="text-emerald-600">{{ Object.keys(examAnswers).length }}</strong> / 共 {{ examQuestions.length }} 题
+                </p>
+              </div>
+              <button @click="openExamCardDrawer = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg text-lg font-bold">
+                ✕
+              </button>
             </div>
-          </div>
+            
+            <div class="flex items-center gap-4 px-4 py-2 bg-slate-50 text-[11px] border-b border-slate-100">
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-600 inline-block"></span> 当前题</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span> 已作答</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-slate-200 border border-slate-300 inline-block"></span> 未作答</span>
+            </div>
 
-          <div>
-            <div class="text-3xl sm:text-4xl font-black" :class="examReport.passed ? 'text-emerald-600' : 'text-rose-600'">
-              {{ examReport.score }} <span class="text-base text-slate-400 font-normal">/ {{ examReport.totalScore }} 分</span>
+            <div class="p-4 overflow-y-auto max-h-[50vh]">
+              <div class="grid grid-cols-5 sm:grid-cols-6 gap-2">
+                <button 
+                  v-for="(q, idx) in examQuestions" 
+                  :key="q.id"
+                  @click="jumpToExamQuestion(idx)"
+                  :class="getExamCardClass(q, idx)"
+                  class="h-10 rounded-xl text-xs transition flex items-center justify-center font-bold">
+                  {{ idx + 1 }}
+                </button>
+              </div>
             </div>
-            <p class="text-xs text-slate-500 mt-1">及格线 {{ examReport.passScore }} 分 · 用时 {{ formatTime(examReport.timeSpent) }}</p>
-          </div>
 
-          <!-- 各题型得分明细 -->
-          <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-            <div>
-              <span class="text-slate-500 block">单选题</span>
-              <span class="font-bold text-slate-800">{{ examReport.singleStats.score }}/{{ examReport.singleStats.totalScore }}分</span>
+            <div class="p-3 bg-slate-50 border-t border-slate-100 flex gap-2">
+              <button @click="openExamCardDrawer = false" class="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs transition">
+                返回答题
+              </button>
+              <button @click="confirmSubmitExam" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow transition">
+                提前交卷
+              </button>
             </div>
-            <div>
-              <span class="text-slate-500 block">多选题</span>
-              <span class="font-bold text-slate-800">{{ examReport.multiStats.score }}/{{ examReport.multiStats.totalScore }}分</span>
-            </div>
-            <div>
-              <span class="text-slate-500 block">判断题</span>
-              <span class="font-bold text-slate-800">{{ examReport.judgeStats.score }}/{{ examReport.judgeStats.totalScore }}分</span>
-            </div>
-          </div>
-
-          <!-- 复盘本场错题与返回按钮 -->
-          <div class="flex gap-2.5">
-            <button @click="reviewExamErrors" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition">
-              复盘本场错题 ({{ examReport.wrongQuestions.length }}题)
-            </button>
-            <button @click="exitExamReport" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
-              返回练习主页
-            </button>
           </div>
         </div>
 
       </section>
 
       <!-- ---------------- TAB D: 【错题消斩】 ---------------- -->
-      <section v-if="currentTab === 'wrong'" id="page-wrong" class="flex-1 flex flex-col p-4 sm:p-5 space-y-4">
-        <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-800 flex items-start space-x-2">
-          <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <section v-if="currentTab === 'wrong'" id="page-wrong" class="flex-1 flex flex-col p-2 sm:p-5 space-y-2 sm:space-y-4">
+        <div class="bg-rose-50 border border-rose-200 rounded-lg sm:rounded-xl p-2.5 sm:p-4 text-[11px] sm:text-xs text-rose-800 flex items-start space-x-2">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <div>
-            <strong class="font-bold block text-sm">错题消斩规则：</strong>
+            <strong class="font-bold block text-xs sm:text-sm">错题消斩规则：</strong>
             <span>为防止靠运气蒙对，在错题消斩模式下，同一道错题必须<strong class="text-rose-900 underline">连续答对 2 次</strong>才会被自动移出错题本！</span>
           </div>
         </div>
 
         <!-- 错题为空时的庆祝状态 -->
-        <div v-if="wrongQuestionList.length === 0" class="flex-1 flex flex-col items-center justify-center py-16 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-6">
-          <div class="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">🎉</div>
-          <h3 class="text-base font-bold text-slate-800">太棒了！当前错题本已全部消斩！</h3>
-          <p class="text-xs text-slate-500 max-w-sm">您已经完全掌握了所有历史错题。建议进行一次【全真模拟考试】检验实战成效！</p>
-          <button @click="switchTab('exam')" class="px-5 py-2.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 shadow">进入模拟考试</button>
+        <div v-if="wrongQuestionList.length === 0" class="flex-1 flex flex-col items-center justify-center py-12 text-center space-y-2.5 bg-white rounded-xl sm:rounded-2xl border border-slate-200 p-4 sm:p-6">
+          <div class="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold">🎉</div>
+          <h3 class="text-sm sm:text-base font-bold text-slate-800">太棒了！当前错题本已全部消斩！</h3>
+          <p class="text-[11px] sm:text-xs text-slate-500 max-w-sm">您已经完全掌握了所有历史错题。建议进行一次【全真模拟考试】检验实战成效！</p>
+          <button @click="switchTab('exam')" class="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 shadow">进入模拟考试</button>
         </div>
 
         <!-- 错题消斩卡片 -->
-        <div v-else class="space-y-4">
-          <div class="flex items-center justify-between text-xs text-slate-600 px-1 flex-wrap gap-2">
-            <div class="flex items-center space-x-2">
-              <span>待消灭错题: <strong class="text-rose-600">{{ wrongQuestionList.length }}</strong> 题</span>
-              <span class="bg-rose-100 text-rose-800 px-2 py-0.5 rounded font-bold">
-                当前连对进度: {{ getWrongStreak(currentQuestion?.id) }}/2 次
+        <div v-else class="space-y-2 sm:space-y-4">
+          <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-600 px-1 flex-wrap gap-1">
+            <div class="flex items-center space-x-1 sm:space-x-2">
+              <span>待消灭: <strong class="text-rose-600">{{ wrongQuestionList.length }}</strong> 题</span>
+              <span class="bg-rose-100 text-rose-800 px-1.5 py-0.2 rounded font-bold text-[10px] sm:text-xs">
+                连对: {{ getWrongStreak(currentQuestion?.id) }}/2 次
               </span>
             </div>
 
@@ -721,80 +1000,92 @@
               @click="toggleAutoNext" 
               type="button"
               :class="autoNextOnCorrect ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
-              class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition cursor-pointer select-none"
+              class="flex items-center space-x-1 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg border text-[10px] sm:text-xs font-medium transition cursor-pointer select-none"
               :title="autoNextOnCorrect ? '已开启：答对延迟0.5秒自动下一题，答错停留在当前页' : '已关闭：答对答错均停留在当前页，请手动点击下一题'">
               <span 
                 :class="autoNextOnCorrect ? 'bg-rose-600' : 'bg-slate-300'"
-                class="w-7 h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
+                class="w-6 sm:w-7 h-3.5 sm:h-4 rounded-full transition-colors relative inline-flex items-center p-0.5 shrink-0">
                 <span 
-                  :class="autoNextOnCorrect ? 'translate-x-3' : 'translate-x-0'"
-                  class="w-3 h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
+                  :class="autoNextOnCorrect ? 'translate-x-2.5 sm:translate-x-3' : 'translate-x-0'"
+                  class="w-2.5 sm:w-3 h-2.5 sm:h-3 bg-white rounded-full shadow-xs transform transition-transform duration-200"></span>
               </span>
-              <span class="text-[11px] font-semibold whitespace-nowrap">答对自动下一题</span>
+              <span class="whitespace-nowrap">答对自动下题</span>
             </button>
           </div>
 
-          <!-- 错题题干 -->
-          <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
-            <span class="inline-block text-xs font-bold px-2 py-0.5 rounded mr-1.5 align-middle bg-rose-100 text-rose-700">
-              {{ currentQuestion.type }}
-            </span>
-            <span class="text-base sm:text-lg font-medium text-slate-900 leading-relaxed">{{ currentQuestion.stem }}</span>
+          <!-- 错题题干 (极度压缩边距) -->
+          <div class="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-xs sm:shadow-sm border border-slate-200">
+            <div class="flex items-start justify-between gap-1.5">
+              <div class="text-sm sm:text-base font-medium text-slate-900 leading-snug sm:leading-relaxed">
+                <span class="inline-flex items-center text-[10px] sm:text-xs font-bold px-1.5 py-0.2 rounded mr-1 align-middle bg-rose-100 text-rose-700">
+                  {{ currentQuestion.type }}
+                </span>
+                {{ currentQuestion.stem }}
+              </div>
+              <!-- 错题也支持一键收藏 -->
+              <button 
+                @click="toggleFavorite(currentQuestion.id)" 
+                class="p-1 sm:p-2 rounded-lg border transition shrink-0 cursor-pointer"
+                :class="isFavorite(currentQuestion.id) ? 'bg-amber-50 text-amber-500 border-amber-200' : 'bg-slate-50 text-slate-400 hover:text-amber-500 border-slate-200'"
+                title="收藏本题">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 fill-current" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+              </button>
+            </div>
           </div>
 
-          <!-- 选项列表 -->
-          <div class="space-y-2.5">
+          <!-- 选项列表 (紧凑化) -->
+          <div class="space-y-1.5 sm:space-y-2.5">
             <div 
               v-for="opt in currentQuestion.options" 
               :key="opt.key"
               @click="handleOptionClick(opt.key)"
               :class="getOptionClass(opt.key)"
-              class="w-full p-3.5 sm:p-4 rounded-xl border text-left transition flex items-center space-x-3 cursor-pointer">
-              <span :class="getOptionBadgeClass(opt.key)" class="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 border">
+              class="w-full py-1.5 px-2.5 sm:py-3 sm:px-4 rounded-lg sm:rounded-xl border text-left transition flex items-center space-x-2 sm:space-x-3 cursor-pointer">
+              <span :class="getOptionBadgeClass(opt.key)" class="w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 border">
                 {{ opt.key }}
               </span>
-              <span class="flex-1 text-sm text-slate-800">{{ opt.text }}</span>
+              <span class="flex-1 text-xs sm:text-sm font-normal text-slate-800 leading-snug sm:leading-normal">{{ opt.text }}</span>
             </div>
           </div>
 
           <!-- 多选提交 -->
-          <div v-if="currentQuestion.type === '多选题' && !shouldShowResult" class="pt-2">
-            <button @click="submitMultiChoice" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">
+          <div v-if="currentQuestion.type === '多选题' && !shouldShowResult" class="pt-1">
+            <button @click="submitMultiChoice" class="w-full py-2 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg sm:rounded-xl text-xs sm:text-sm shadow">
               确认提交本题答案
             </button>
           </div>
 
-          <!-- 答案与解析 -->
-          <div v-if="shouldShowResult" class="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
-            <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200 font-extrabold text-emerald-900 text-sm sm:text-base">
+          <!-- 答案与解析 (上移至选项下方緊鄰位置，核心解析全显) -->
+          <div v-if="shouldShowResult" id="wrong-answer-analysis-box" class="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 border border-slate-200 shadow-xs space-y-1.5 sm:space-y-2.5">
+            <div class="bg-emerald-50/90 py-1.5 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-emerald-200 font-black text-emerald-900 text-xs sm:text-sm">
               正确答案：<span class="text-emerald-700">{{ getFormattedCorrectAnswer(currentQuestion) }}</span>
             </div>
-            <div class="text-xs sm:text-sm text-slate-700">
-              <strong class="block text-slate-900 mb-1">【试题解析与考点精析】</strong>
-              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+            <div class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+              <strong class="block text-slate-900 text-[11px] sm:text-xs mb-1">【试题解析与考点精析】</strong>
+              <div class="bg-slate-50 py-1.5 px-2.5 sm:p-3 rounded-lg border border-slate-200/80 leading-relaxed text-[11px] sm:text-xs max-h-36 overflow-y-auto whitespace-pre-wrap">
                 {{ currentQuestion.analysis && currentQuestion.analysis.trim() ? currentQuestion.analysis : '暂无解析' }}
               </div>
             </div>
 
             <!-- 快捷下一题操作提示与按钮 -->
-            <div v-if="currentIndex < currentList.length - 1" class="pt-2 flex items-center justify-between border-t border-slate-100">
-              <div class="text-[11px] text-slate-500 flex items-center space-x-1">
+            <div v-if="currentIndex < currentList.length - 1" class="pt-1.5 flex items-center justify-between border-t border-slate-100">
+              <div class="text-[10px] sm:text-[11px] text-slate-500 flex items-center space-x-1">
                 <span v-if="!autoNextOnCorrect" class="text-amber-700 font-medium">
-                  💡 停留在当前错题复盘，点击【下一题】或按 Enter 键继续
+                  💡 停留在当前错题复盘，点击【下一题】继续
                 </span>
                 <span v-else-if="currentRecord && currentRecord.isCorrect" class="text-emerald-700 font-medium">
                   ⚡ 作答正确，0.5秒后自动切入下一题...
                 </span>
                 <span v-else class="text-rose-700 font-medium">
-                  💡 答错停留在当前题，请点击【下一题】或按 Enter 键继续
+                  💡 答错停留在当前题，点击【下一题】继续
                 </span>
               </div>
               <button 
                 @click="nextQuestion" 
-                class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center space-x-1 shrink-0">
+                class="px-2.5 py-1 sm:px-3.5 sm:py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-[11px] sm:text-xs font-bold rounded-lg shadow-xs transition flex items-center space-x-1 shrink-0">
                 <span>下一题</span>
                 <span class="hidden sm:inline text-[10px] bg-rose-500 px-1 py-0.2 rounded font-mono font-normal">Enter ↵</span>
-                <svg class="w-3.5 h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <svg class="w-3 h-3 sm:w-3.5 sm:h-3.5 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               </button>
             </div>
           </div>
@@ -884,15 +1175,15 @@
         v-if="currentTab === 'practice' || currentTab === 'wrong'" 
         id="bottom-bar" 
         class="fixed bottom-0 left-0 right-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 shadow-lg safe-bottom">
-        <div class="max-w-3xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
+        <div class="max-w-3xl mx-auto px-2.5 py-1.5 sm:px-4 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-2">
           
           <!-- 上一题 -->
           <button 
             id="btn-prev"
             @click="prevQuestion" 
             :disabled="currentIndex <= 0"
-            class="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            class="flex-1 py-1.5 sm:py-2.5 px-2 sm:px-3 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed text-slate-700 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             <span>上一题</span>
           </button>
 
@@ -900,10 +1191,10 @@
           <button 
             id="btn-card-drawer"
             @click="openCardDrawer = true" 
-            class="py-2.5 px-3 sm:px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1.5 shadow-sm">
-            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            class="py-1.5 sm:py-2.5 px-2.5 sm:px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition flex items-center justify-center space-x-1 sm:space-x-1.5 shadow-sm">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
             <span>答题卡</span>
-            <span class="bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">{{ currentIndex + 1 }}/{{ currentList.length }}</span>
+            <span class="bg-blue-600 text-white text-[10px] px-1 sm:px-1.5 py-0.2 rounded-full font-mono">{{ currentIndex + 1 }}/{{ currentList.length }}</span>
           </button>
 
           <!-- 下一题 (答题后高亮聚焦) -->
@@ -911,11 +1202,11 @@
             id="btn-next"
             @click="nextQuestion" 
             :disabled="currentIndex >= currentList.length - 1"
-            :class="shouldShowResult ? 'bg-blue-600 hover:bg-blue-700 ring-2 ring-blue-400 ring-offset-1 shadow-lg shadow-blue-500/30 font-bold' : 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 font-semibold'"
-            class="flex-1 py-2.5 px-3 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-1">
+            :class="shouldShowResult ? 'bg-blue-600 hover:bg-blue-700 ring-2 ring-blue-400 ring-offset-1 shadow-md shadow-blue-500/30 font-bold' : 'bg-blue-600 hover:bg-blue-700 shadow-sm font-semibold'"
+            class="flex-1 py-1.5 sm:py-2.5 px-2 sm:px-3 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg sm:rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-1">
             <span>下一题</span>
             <span v-if="shouldShowResult" class="hidden sm:inline text-[10px] bg-blue-500/60 px-1.5 py-0.5 rounded font-mono font-normal">Enter ↵</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </button>
 
         </div>
@@ -1058,6 +1349,9 @@
           const selectedCategory = ref('全部');
           const selectedDifficulty = ref('全部');
 
+          // 重点收藏专练模式标记
+          const isFavoritesPractice = ref(false);
+
           // 答对自动下一题控制开关（默认关闭 false，持久化存储在 localStorage）
           const autoNextOnCorrect = ref(localStorage.getItem('app_auto_next_on_correct') === 'true');
           let autoNextTimer = null;
@@ -1082,6 +1376,7 @@
 
           // 答题卡抽屉与多选临时缓存
           const openCardDrawer = ref(false);
+          const openExamCardDrawer = ref(false);
           const multiSelections = ref([]);
           const toastMsg = ref('');
           let toastTimer = null;
@@ -1172,10 +1467,17 @@
             return currentBank.value.questions.filter(q => wrongIds.includes(q.id));
           });
 
-          // 单项练习筛选后的列表
+          // 重点收藏列表 (从当前题库中过滤所有用户标星的试题)
+          const favoriteQuestionList = computed(() => {
+            if (!currentBank.value || !currentBank.value.questions) return [];
+            const favIds = currentBank.value.favorites || [];
+            return currentBank.value.questions.filter(q => favIds.includes(q.id));
+          });
+
+          // 单项练习筛选后的列表 (若处于重点收藏专练模式，则仅过滤收藏题目)
           const practiceFilteredList = computed(() => {
             if (!currentBank.value) return [];
-            let list = currentBank.value.questions;
+            let list = isFavoritesPractice.value ? favoriteQuestionList.value : currentBank.value.questions;
 
             if (selectedType.value !== '全部') {
               list = list.filter(q => q.type === selectedType.value);
@@ -1248,15 +1550,66 @@
             return Math.min(100, Math.round((answeredCount.value / total) * 100));
           });
 
-          // 考试题目存量计算
-          const bankSingleCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '单选题').length);
-          const bankMultiCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '多选题').length);
-          const bankJudgeCount = computed(() => currentBankAllQuestions.value.filter(q => q.type === '判断题').length);
+          // 考试题目存量计算 (兼容 '单选'/'单选题' 等格式)
+          const bankSingleCount = computed(() => (currentBankAllQuestions.value || []).filter(q => q && (q.type === '单选题' || q.type === '单选')).length);
+          const bankMultiCount = computed(() => (currentBankAllQuestions.value || []).filter(q => q && (q.type === '多选题' || q.type === '多选')).length);
+          const bankJudgeCount = computed(() => (currentBankAllQuestions.value || []).filter(q => q && (q.type === '判断题' || q.type === '判断')).length);
 
           const calculatedExamTotalScore = computed(() => {
-            const cfg = examConfig.value;
-            return (cfg.singleCount * cfg.singleScore) + (cfg.multiCount * cfg.multiScore) + (cfg.judgeCount * cfg.judgeScore);
+            const cfg = examConfig.value || {};
+            const sC = Number(cfg.singleCount) || 0;
+            const sS = Number(cfg.singleScore) || 0;
+            const mC = Number(cfg.multiCount) || 0;
+            const mS = Number(cfg.multiScore) || 0;
+            const jC = Number(cfg.judgeCount) || 0;
+            const jS = Number(cfg.judgeScore) || 0;
+            return (sC * sS) + (mC * mS) + (jC * jS);
           });
+
+          // ================= 模拟考试初始化与安全校验 =================
+          const initExam = () => {
+            try {
+              console.log('[模拟考试] [阶段1: 路由切换] 进入模拟考试页面, 当前题库:', currentBank.value ? currentBank.value.name : '未选择', 'ID:', currentBank.value?.id);
+              
+              if (!currentBank.value || !Array.isArray(currentBankAllQuestions.value) || currentBankAllQuestions.value.length === 0) {
+                console.warn('[模拟考试] 当前题库无有效试题，已激活缺省引导卡片');
+                showToast('模拟考试生成失败，请检查是否已导入题库', 3000);
+                return false;
+              }
+
+              const sCount = bankSingleCount.value;
+              const mCount = bankMultiCount.value;
+              const jCount = bankJudgeCount.value;
+              const totalQ = currentBankAllQuestions.value.length;
+
+              console.log(`[模拟考试] [阶段2: 参数校验] 题库题型分布: 单选 ${sCount}, 多选 ${mCount}, 判断 ${jCount}, 题库总计 ${totalQ}`);
+
+              // 自动校准抽题上限，防止默认配置超出实际存量
+              if (examConfig.value.singleCount > sCount) {
+                examConfig.value.singleCount = sCount;
+              }
+              if (examConfig.value.multiCount > mCount) {
+                examConfig.value.multiCount = mCount;
+              }
+              if (examConfig.value.judgeCount > jCount) {
+                examConfig.value.judgeCount = jCount;
+              }
+
+              // 如果因分类不符导致全部为0，但题库有题目，自动设定可用题量
+              if (examConfig.value.singleCount === 0 && examConfig.value.multiCount === 0 && examConfig.value.judgeCount === 0 && totalQ > 0) {
+                if (sCount > 0) examConfig.value.singleCount = Math.min(sCount, 10);
+                else examConfig.value.singleCount = Math.min(totalQ, 10);
+              }
+
+              console.log('[模拟考试] [阶段2: 参数就绪] 最终考卷抽取配置:', JSON.stringify(examConfig.value));
+              return true;
+            } catch (err) {
+              console.error('[模拟考试] 初始化模拟考试发生异常:', err);
+              showToast('模拟考试生成失败，请检查是否已导入题库', 3000);
+              currentTab.value = 'home';
+              return false;
+            }
+          };
 
           // ================= 核心方法：正确答案格式化输出 =================
           // 明确显示：“正确答案：[显示正确选项字母及对应文本]”
@@ -1284,17 +1637,33 @@
 
           // 切换 Tab
           const switchTab = (tab) => {
-            clearAutoNextTimer();
-            if (isExamMode.value && tab !== 'exam') {
-              if (!confirm('正在全真模拟考试中，切换页面将保留计时。确定切换吗？')) return;
+            try {
+              clearAutoNextTimer();
+              if (isExamMode.value && tab !== 'exam') {
+                if (!confirm('正在全真模拟考试中，切换页面将保留计时。确定切换吗？')) return;
+              }
+              if (tab !== 'practice') {
+                isFavoritesPractice.value = false;
+              }
+              currentTab.value = tab;
+              currentIndex.value = 0;
+              multiSelections.value = [];
+              openCardDrawer.value = false;
+              openExamCardDrawer.value = false;
+
+              if (tab === 'exam') {
+                initExam();
+              }
+            } catch (err) {
+              console.error('[导航切换] 异常:', err);
+              showToast('页面切换异常，已安全回退到首页', 2500);
+              currentTab.value = 'home';
             }
-            currentTab.value = tab;
-            currentIndex.value = 0;
-            multiSelections.value = [];
           };
 
           // 首页：一键开始上次练习
           const resumeLastPractice = () => {
+            isFavoritesPractice.value = false;
             currentTab.value = 'practice';
             resetFilters();
             if (currentBank.value && typeof currentBank.value.currentIndex === 'number') {
@@ -1305,8 +1674,32 @@
             showToast(`已恢复上次答题位置：第 ${currentIndex.value + 1} 题`);
           };
 
+          // 首页：点击重点收藏卡片开启收藏专练
+          const startFavoritePractice = () => {
+            if (favoriteCount.value === 0) {
+              showToast('暂无收藏题目，请在刷题时点击右上角星号标记疑难考点！', 2500);
+              return;
+            }
+            isFavoritesPractice.value = true;
+            currentTab.value = 'practice';
+            resetFilters();
+            currentIndex.value = 0;
+            multiSelections.value = [];
+            showToast(`已开启【重点收藏专项练习】(共 ${favoriteCount.value} 题)`);
+          };
+
+          // 退出重点收藏专练模式，返回全部试题练习
+          const exitFavoritePractice = () => {
+            isFavoritesPractice.value = false;
+            resetFilters();
+            currentIndex.value = 0;
+            multiSelections.value = [];
+            showToast('已退出收藏模式，返回全部试题练习');
+          };
+
           // 首页：点击专业类别开启专攻
           const startCategoryPractice = (catName) => {
+            isFavoritesPractice.value = false;
             currentTab.value = 'practice';
             resetFilters();
             selectedCategory.value = catName;
@@ -1468,18 +1861,31 @@
             showToast('未找到后续错题');
           };
 
-          // 收藏
+          // 收藏与取消收藏
           const isFavorite = (qId) => {
             return currentBank.value?.favorites?.includes(qId);
           };
 
           const toggleFavorite = (qId) => {
             if (!currentBank.value) return;
-            if (!currentBank.value.favorites) currentBank.value.favorites = [];
+            if (!Array.isArray(currentBank.value.favorites)) {
+              currentBank.value.favorites = [];
+            }
             const idx = currentBank.value.favorites.indexOf(qId);
             if (idx > -1) {
               currentBank.value.favorites.splice(idx, 1);
               showToast('已取消收藏');
+              // 若当前正处于重点收藏专练模式
+              if (isFavoritesPractice.value) {
+                if (favoriteCount.value === 0) {
+                  showToast('收藏夹题目已全部取消，已自动返回全部试题练习', 2500);
+                  isFavoritesPractice.value = false;
+                  resetFilters();
+                  currentIndex.value = 0;
+                } else if (currentIndex.value >= currentList.value.length) {
+                  currentIndex.value = Math.max(0, currentList.value.length - 1);
+                }
+              }
             } else {
               currentBank.value.favorites.push(qId);
               showToast('⭐ 已加入重点收藏');
@@ -1555,71 +1961,177 @@
 
           // ================= 考试模块方法 =================
           const startMockExam = () => {
-            const allQ = currentBankAllQuestions.value;
-            if (allQ.length === 0) {
-              alert('当前题库无试题，无法开启模拟考试！');
-              return;
-            }
+            try {
+              console.log('[模拟考试] [阶段3: 开始生成考卷] 触发开考动作, 当前题库:', currentBank.value?.name);
 
-            const singles = allQ.filter(q => q.type === '单选题').sort(() => Math.random() - 0.5);
-            const multis = allQ.filter(q => q.type === '多选题').sort(() => Math.random() - 0.5);
-            const judges = allQ.filter(q => q.type === '判断题').sort(() => Math.random() - 0.5);
-
-            const picked = [
-              ...singles.slice(0, examConfig.value.singleCount),
-              ...multis.slice(0, examConfig.value.multiCount),
-              ...judges.slice(0, examConfig.value.judgeCount)
-            ];
-
-            if (picked.length === 0) {
-              alert('抽取试题总数为0，请调整各题型抽题数量！');
-              return;
-            }
-
-            examQuestions.value = picked;
-            examAnswers.value = {};
-            currentIndex.value = 0;
-            examDurationTotal.value = examConfig.value.duration * 60;
-            examTimeLeft.value = examDurationTotal.value;
-            isExamMode.value = true;
-            examReport.value = null;
-
-            clearInterval(examTimer.value);
-            examTimer.value = setInterval(() => {
-              if (examTimeLeft.value > 0) {
-                examTimeLeft.value--;
-              } else {
-                clearInterval(examTimer.value);
-                submitExam();
+              // 1. 强校验当前题库数据是否存在
+              if (!currentBank.value || !Array.isArray(currentBankAllQuestions.value) || currentBankAllQuestions.value.length === 0) {
+                console.error('[模拟考试] 题库数据不存在或无有效题目');
+                showToast('模拟考试生成失败，请检查是否已导入题库', 3000);
+                currentTab.value = 'home';
+                return;
               }
-            }, 1000);
 
-            showToast('考试开始！预祝取得优异成绩！');
+              const allQ = currentBankAllQuestions.value;
+              console.log(`[模拟考试] 当前题库共有 ${allQ.length} 道试题`);
+
+              // 2. 试题抽取逻辑防空与防越界处理
+              let reqSingle = Math.max(0, parseInt(examConfig.value.singleCount, 10) || 0);
+              let reqMulti = Math.max(0, parseInt(examConfig.value.multiCount, 10) || 0);
+              let reqJudge = Math.max(0, parseInt(examConfig.value.judgeCount, 10) || 0);
+              let totalRequested = reqSingle + reqMulti + reqJudge;
+
+              console.log(`[模拟考试] 期望抽取数量: 单选 ${reqSingle}, 多选 ${reqMulti}, 判断 ${reqJudge}, 总计 ${totalRequested}`);
+
+              const singles = allQ.filter(q => q && (q.type === '单选题' || q.type === '单选')).sort(() => Math.random() - 0.5);
+              const multis = allQ.filter(q => q && (q.type === '多选题' || q.type === '多选')).sort(() => Math.random() - 0.5);
+              const judges = allQ.filter(q => q && (q.type === '判断题' || q.type === '判断')).sort(() => Math.random() - 0.5);
+
+              console.log(`[模拟考试] 题库实际存量: 单选 ${singles.length}, 多选 ${multis.length}, 判断 ${judges.length}`);
+
+              let picked = [];
+
+              // 如果当前题库为空或题量不足（例如请求 100 题但题库只有 50 题），自动调整抽题数量为“当前题库全部题目”
+              if (allQ.length <= totalRequested || totalRequested <= 0 || (singles.length === 0 && multis.length === 0 && judges.length === 0)) {
+                console.warn(`[模拟考试] 题库题量不足或请求抽题总数为0 (请求 ${totalRequested}, 现有 ${allQ.length})，自动调整抽题数量为“当前题库全部题目”`);
+                picked = [...allQ].sort(() => Math.random() - 0.5);
+                showToast(`题库题量不足，已自动调整为全题库共 ${allQ.length} 题`, 2500);
+              } else {
+                const pickedSingles = singles.slice(0, Math.min(reqSingle, singles.length));
+                const pickedMultis = multis.slice(0, Math.min(reqMulti, multis.length));
+                const pickedJudges = judges.slice(0, Math.min(reqJudge, judges.length));
+                picked = [...pickedSingles, ...pickedMultis, ...pickedJudges];
+
+                // 若题型分类不足导致抽取总数少于请求总数，从剩余题目中自动补齐，防止越界或空数组
+                if (picked.length < totalRequested && picked.length < allQ.length) {
+                  const pickedIds = new Set(picked.map(q => q.id));
+                  const remaining = allQ.filter(q => !pickedIds.has(q.id)).sort(() => Math.random() - 0.5);
+                  const needed = Math.min(totalRequested - picked.length, remaining.length);
+                  picked.push(...remaining.slice(0, needed));
+                  console.log(`[模拟考试] 已从剩余题目自动补齐 ${needed} 题，实际考卷共 ${picked.length} 题`);
+                }
+              }
+
+              // 严密兜底校验：确保抽取的考题数组非空
+              if (!picked || picked.length === 0) {
+                console.error('[模拟考试] 抽取题目列表为空，无法开考');
+                showToast('模拟考试生成失败，请检查是否已导入题库', 3000);
+                isExamMode.value = false;
+                currentTab.value = 'home';
+                return;
+              }
+
+              // 数据深度脱敏与格式兜底，防止渲染时出现 options 未定义导致崩溃黑屏
+              picked = picked.map((q, idx) => {
+                const safeQ = { ...q };
+                if (!safeQ.id) safeQ.id = 'exam_q_' + (idx + 1);
+                if (!safeQ.stem) safeQ.stem = '【试题内容】第 ' + (idx + 1) + ' 题';
+                if (!Array.isArray(safeQ.options) || safeQ.options.length === 0) {
+                  if (safeQ.type === '判断题' || safeQ.type === '判断') {
+                    safeQ.options = [{ key: 'A', text: '正确' }, { key: 'B', text: '错误' }];
+                  } else {
+                    safeQ.options = [
+                      { key: 'A', text: '选项 A' },
+                      { key: 'B', text: '选项 B' },
+                      { key: 'C', text: '选项 C' },
+                      { key: 'D', text: '选项 D' }
+                    ];
+                  }
+                }
+                return safeQ;
+              });
+
+              examQuestions.value = picked;
+              examAnswers.value = {};
+              currentIndex.value = 0;
+              const durationMin = Math.max(1, parseInt(examConfig.value.duration, 10) || 45);
+              examDurationTotal.value = durationMin * 60;
+              examTimeLeft.value = examDurationTotal.value;
+              isExamMode.value = true;
+              examReport.value = null;
+              openExamCardDrawer.value = false;
+
+              if (examTimer.value) clearInterval(examTimer.value);
+              examTimer.value = setInterval(() => {
+                if (examTimeLeft.value > 0) {
+                  examTimeLeft.value--;
+                } else {
+                  clearInterval(examTimer.value);
+                  submitExam();
+                }
+              }, 1000);
+
+              console.log(`[模拟考试] [阶段4: 考场启动] 考卷生成成功！试题数: ${picked.length}, 时长: ${durationMin} 分钟`);
+              showToast(`考试开始！共 ${picked.length} 题，预祝取得优异成绩！`);
+            } catch (err) {
+              console.error('[模拟考试] 启动发生异常:', err);
+              showToast('模拟考试生成失败，请检查是否已导入题库', 3000);
+              isExamMode.value = false;
+              currentTab.value = 'home';
+            }
+          };
+
+          const startExam = startMockExam;
+
+          const prevExamQuestion = () => {
+            if (currentIndex.value > 0) {
+              currentIndex.value--;
+            }
+          };
+
+          const nextExamQuestion = () => {
+            if (currentIndex.value < examQuestions.value.length - 1) {
+              currentIndex.value++;
+            }
+          };
+
+          const jumpToExamQuestion = (idx) => {
+            if (idx >= 0 && idx < examQuestions.value.length) {
+              currentIndex.value = idx;
+              openExamCardDrawer.value = false;
+            }
+          };
+
+          const getExamCardClass = (q, idx) => {
+            if (idx === currentIndex.value) {
+              return 'bg-blue-600 text-white ring-2 ring-blue-400 shadow-md font-bold';
+            }
+            if (examAnswers.value[q.id]) {
+              return 'bg-emerald-600 text-white font-semibold';
+            }
+            return 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200';
           };
 
           const handleExamOptionClick = (key) => {
-            if (!currentQuestion.value) return;
-            const q = currentQuestion.value;
-            if (q.type === '多选题') {
-              const current = examAnswers.value[q.id] ? examAnswers.value[q.id].split('') : [];
-              const idx = current.indexOf(key);
-              if (idx > -1) current.splice(idx, 1);
-              else current.push(key);
-              examAnswers.value[q.id] = current.sort().join('');
-            } else {
-              examAnswers.value[q.id] = key;
+            try {
+              if (!currentQuestion.value) return;
+              const q = currentQuestion.value;
+              const isMulti = q.type === '多选题' || q.type === '多选';
+              if (isMulti) {
+                const current = examAnswers.value[q.id] ? String(examAnswers.value[q.id]).split('') : [];
+                const idx = current.indexOf(key);
+                if (idx > -1) current.splice(idx, 1);
+                else current.push(key);
+                examAnswers.value[q.id] = current.sort().join('');
+              } else {
+                examAnswers.value[q.id] = key;
+              }
+              console.log(`[模拟考试] [作答更新] 题号: ${currentIndex.value + 1}, 选项: ${key}, 当前选择: ${examAnswers.value[q.id]}`);
+            } catch (err) {
+              console.error('[模拟考试] 选项选择处理异常:', err);
             }
           };
 
           const isExamOptionSelected = (key) => {
             if (!currentQuestion.value) return false;
-            const ans = examAnswers.value[currentQuestion.value.id] || '';
-            return ans.includes(key);
+            const ans = examAnswers.value[currentQuestion.value.id];
+            if (ans === undefined || ans === null) return false;
+            return String(ans).includes(String(key));
           };
 
           const getExamOptionClass = (key) => {
             if (isExamOptionSelected(key)) {
-              return 'bg-blue-50 border-blue-500 ring-2 ring-blue-400';
+              return 'bg-blue-50 border-blue-500 ring-2 ring-blue-400 font-semibold';
             }
             return 'bg-white border-slate-200 hover:border-slate-300';
           };
@@ -1629,60 +2141,87 @@
             if (unanswered > 0) {
               if (!confirm(`您还有 ${unanswered} 道题尚未作答，确定提前交卷吗？`)) return;
             } else {
-              if (!confirm('确定提交试卷吗？')) return;
+              if (!confirm('确定提交试卷并结束模拟考试吗？')) return;
             }
             submitExam();
           };
 
           const submitExam = () => {
-            clearInterval(examTimer.value);
+            try {
+              console.log('[模拟考试] [阶段5: 提交试卷] 开始计算成绩报告...');
+              if (examTimer.value) clearInterval(examTimer.value);
 
-            let totalScore = calculatedExamTotalScore.value;
-            const wrongList = [];
-            let singleScore = 0, singleTotal = examConfig.value.singleCount * examConfig.value.singleScore;
-            let multiScore = 0, multiTotal = examConfig.value.multiCount * examConfig.value.multiScore;
-            let judgeScore = 0, judgeTotal = examConfig.value.judgeCount * examConfig.value.judgeScore;
+              const wrongList = [];
+              let singleScore = 0, singleTotal = 0;
+              let multiScore = 0, multiTotal = 0;
+              let judgeScore = 0, judgeTotal = 0;
 
-            examQuestions.value.forEach(q => {
-              const userAns = examAnswers.value[q.id] || '';
-              const isCorrect = userAns === q.answer;
+              const singlePt = examConfig.value.singleScore || 2;
+              const multiPt = examConfig.value.multiScore || 4;
+              const judgePt = examConfig.value.judgeScore || 2;
 
-              if (isCorrect) {
-                if (q.type === '单选题') singleScore += examConfig.value.singleScore;
-                else if (q.type === '多选题') multiScore += examConfig.value.multiScore;
-                else if (q.type === '判断题') judgeScore += examConfig.value.judgeScore;
-              } else {
-                wrongList.push(q);
-                // 考场错题自动加入题库错题本
-                if (currentBank.value) {
-                  if (!currentBank.value.wrongBook) currentBank.value.wrongBook = {};
-                  const wb = currentBank.value.wrongBook;
-                  wb[q.id] = {
-                    wrongCount: ((wb[q.id]?.wrongCount) || 0) + 1,
-                    consecutiveCorrect: 0,
-                    lastTime: Date.now()
-                  };
+              examQuestions.value.forEach(q => {
+                const userAns = examAnswers.value[q.id] || '';
+                const isCorrect = String(userAns).trim().toUpperCase() === String(q.answer || '').trim().toUpperCase();
+                const isSingle = q.type === '单选题' || q.type === '单选';
+                const isMulti = q.type === '多选题' || q.type === '多选';
+                const isJudge = q.type === '判断题' || q.type === '判断';
+
+                if (isSingle) {
+                  singleTotal += singlePt;
+                  if (isCorrect) singleScore += singlePt;
+                } else if (isMulti) {
+                  multiTotal += multiPt;
+                  if (isCorrect) multiScore += multiPt;
+                } else if (isJudge) {
+                  judgeTotal += judgePt;
+                  if (isCorrect) judgeScore += judgePt;
+                } else {
+                  singleTotal += singlePt;
+                  if (isCorrect) singleScore += singlePt;
                 }
-              }
-            });
 
-            const earnedScore = singleScore + multiScore + judgeScore;
-            const passScore = Math.round(totalScore * 0.6);
+                if (!isCorrect) {
+                  wrongList.push(q);
+                  // 考场错题自动加入题库错题本
+                  if (currentBank.value) {
+                    if (!currentBank.value.wrongBook) currentBank.value.wrongBook = {};
+                    const wb = currentBank.value.wrongBook;
+                    wb[q.id] = {
+                      wrongCount: ((wb[q.id]?.wrongCount) || 0) + 1,
+                      consecutiveCorrect: 0,
+                      lastTime: Date.now()
+                    };
+                  }
+                }
+              });
 
-            examReport.value = {
-              score: earnedScore,
-              totalScore: totalScore,
-              passScore: passScore,
-              passed: earnedScore >= passScore,
-              timeSpent: examDurationTotal.value - examTimeLeft.value,
-              wrongQuestions: wrongList,
-              singleStats: { score: singleScore, totalScore: singleTotal },
-              multiStats: { score: multiScore, totalScore: multiTotal },
-              judgeStats: { score: judgeScore, totalScore: judgeTotal }
-            };
+              const totalScore = singleTotal + multiTotal + judgeTotal || calculatedExamTotalScore.value || 100;
+              const earnedScore = singleScore + multiScore + judgeScore;
+              const passScore = Math.round(totalScore * 0.6);
 
-            isExamMode.value = false;
-            saveCurrentBankData();
+              examReport.value = {
+                score: earnedScore,
+                totalScore: totalScore,
+                passScore: passScore,
+                passed: earnedScore >= passScore,
+                timeSpent: Math.max(0, examDurationTotal.value - examTimeLeft.value),
+                wrongQuestions: wrongList,
+                singleStats: { score: singleScore, totalScore: singleTotal },
+                multiStats: { score: multiScore, totalScore: multiTotal },
+                judgeStats: { score: judgeScore, totalScore: judgeTotal }
+              };
+
+              isExamMode.value = false;
+              openExamCardDrawer.value = false;
+              saveCurrentBankData();
+              console.log(`[模拟考试] [阶段5: 考卷评分完毕] 得分: ${earnedScore}/${totalScore}, 及格线: ${passScore}, 是否合格: ${earnedScore >= passScore}, 错题: ${wrongList.length} 题`);
+            } catch (err) {
+              console.error('[模拟考试] 交卷评分发生异常:', err);
+              showToast('交卷评分异常，已安全退出考试', 3000);
+              isExamMode.value = false;
+              currentTab.value = 'home';
+            }
           };
 
           const reviewExamErrors = () => {
@@ -1703,6 +2242,7 @@
           const exitExamReport = () => {
             examReport.value = null;
             isExamMode.value = false;
+            openExamCardDrawer.value = false;
             currentTab.value = 'home';
           };
 
@@ -1715,6 +2255,7 @@
           // ================= 题库管理与 Excel 解析重构 =================
           const switchBank = (bankId) => {
             currentBankId.value = bankId;
+            isFavoritesPractice.value = false;
             currentIndex.value = 0;
             multiSelections.value = [];
             resetFilters();
@@ -1738,6 +2279,7 @@
             if (currentBankId.value === bank.id) {
               currentBankId.value = banks.value[0]?.id || '';
             }
+            isFavoritesPractice.value = false;
             showToast('题库已删除');
           };
 
@@ -1995,13 +2537,21 @@
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
             const key = e.key.toUpperCase();
             if (['A', 'B', 'C', 'D'].includes(key)) {
-              if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
+              if (isExamMode.value) {
+                handleExamOptionClick(key);
+              } else if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
                 handleOptionClick(key);
               }
             } else if (e.key === 'ArrowLeft') {
-              prevQuestion();
+              if (isExamMode.value) {
+                prevExamQuestion();
+              } else {
+                prevQuestion();
+              }
             } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-              if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
+              if (isExamMode.value) {
+                nextExamQuestion();
+              } else if (currentTab.value === 'practice' || currentTab.value === 'wrong') {
                 // 如果是多选题且未提交，Enter键优先执行提交操作
                 if (currentQuestion.value?.type === '多选题' && !shouldShowResult.value && multiSelections.value.length > 0) {
                   submitMultiChoice();
@@ -2022,7 +2572,7 @@
               records: {},
               currentIndex: 0,
               wrongBook: {},
-              favorites: []
+              favorites: ['es_001', 'es_003']
             };
             await localforage.setItem(sampleBank.id, sampleBank);
             await localforage.setItem('app_active_bank_id', sampleBank.id);
@@ -2035,6 +2585,9 @@
               const loadedBanks = [];
               await localforage.iterate((value, key) => {
                 if (key.startsWith('qb_')) {
+                  if (!Array.isArray(value.favorites)) value.favorites = [];
+                  if (!value.records) value.records = {};
+                  if (!value.wrongBook) value.wrongBook = {};
                   loadedBanks.push(value);
                 }
               });
@@ -2083,8 +2636,12 @@
             // Exam
             isExamMode,
             examTimeLeft,
+            examDurationTotal,
+            examQuestions,
+            examAnswers,
             examReport,
             examConfig,
+            openExamCardDrawer,
             bankSingleCount,
             bankMultiCount,
             bankJudgeCount,
@@ -2094,6 +2651,8 @@
             categories,
             categoryStats,
             wrongQuestionList,
+            favoriteQuestionList,
+            isFavoritesPractice,
             practiceFilteredList,
             currentList,
             currentQuestion,
@@ -2110,6 +2669,8 @@
             switchTab,
             resumeLastPractice,
             startCategoryPractice,
+            startFavoritePractice,
+            exitFavoritePractice,
             onFilterChanged,
             resetFilters,
             handleOptionClick,
@@ -2130,7 +2691,13 @@
             getCardItemClass,
 
             // Exam Methods
+            initExam,
             startMockExam,
+            startExam,
+            prevExamQuestion,
+            nextExamQuestion,
+            jumpToExamQuestion,
+            getExamCardClass,
             handleExamOptionClick,
             isExamOptionSelected,
             getExamOptionClass,
